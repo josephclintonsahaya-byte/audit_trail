@@ -6,6 +6,8 @@ const productSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 150,
     },
 
     sku: {
@@ -14,24 +16,30 @@ const productSchema = new Schema(
       unique: true,
       uppercase: true,
       trim: true,
+      minlength: 1,
+      maxlength: 64,
     },
 
     category: {
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 100,
     },
 
     price: {
       type: Number,
       required: true,
       min: 0,
+      validate: Number.isFinite,
     },
 
     quantity: {
       type: Number,
       required: true,
       min: 0,
+      validate: Number.isFinite,
       default: 0,
     },
 

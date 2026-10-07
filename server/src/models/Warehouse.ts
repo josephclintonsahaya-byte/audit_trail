@@ -6,6 +6,8 @@ const warehouseSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 150,
     },
 
     code: {
@@ -14,12 +16,16 @@ const warehouseSchema = new Schema(
       unique: true,
       uppercase: true,
       trim: true,
+      minlength: 1,
+      maxlength: 64,
     },
 
     location: {
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 200,
     },
 
     status: {

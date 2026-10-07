@@ -6,12 +6,16 @@ const eventSchema = new Schema(
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 100,
     },
 
     entityType: {
       type: String,
       required: true,
       trim: true,
+      minlength: 1,
+      maxlength: 100,
     },
 
     entityId: {
@@ -28,6 +32,11 @@ const eventSchema = new Schema(
     payload: {
       type: Schema.Types.Mixed,
       default: {},
+      validate: {
+        validator: (payload: unknown) =>
+          typeof payload === "object" && payload !== null && !Array.isArray(payload),
+        message: "Event payload must be an object",
+      },
     },
   },
   {

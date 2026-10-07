@@ -1,5 +1,6 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
+import EventStore from "../models/EventStore";
 
 dotenv.config();
 
@@ -11,6 +12,7 @@ const connectDatabase = async (): Promise<void> => {
   }
 
   await mongoose.connect(mongoUri);
+  await EventStore.init();
 
   console.log("MongoDB connected successfully");
 };
