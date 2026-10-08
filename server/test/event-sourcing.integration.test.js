@@ -142,12 +142,24 @@ after(async () => {
     server.close((error) => error ? reject(error) : resolve());
   });
   if (mongoose.connection.readyState === 1) {
-    if (ids.shipments.length) {
+    const eventEntityIds = [...ids.shipments, ...ids.inventories];
+    if (eventEntityIds.length) {
       await mongoose.connection.collection("eventstores").deleteMany({
         aggregateId: { $in: ids.shipments },
       });
       await mongoose.connection.collection("events").deleteMany({
-        entityId: { $in: ids.shipments },
+        $or: [
+          { entityId: { $in: eventEntityIds } },
+          { "payload.shipmentId": { $in: ids.shipments } },
+        ],
+      });
+    }
+    if (ids.products.length || ids.warehouses.length) {
+      await mongoose.connection.collection("inventories").deleteMany({
+        $or: [
+          { productId: { $in: ids.products } },
+          { warehouseId: { $in: ids.warehouses } },
+        ],
       });
     }
     for (const collection of ["shipments", "inventories", "products", "warehouses", "users"]) {

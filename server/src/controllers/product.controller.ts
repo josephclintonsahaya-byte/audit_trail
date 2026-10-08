@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import Inventory from "../models/Inventory";
 import Product from "../models/Product";
 import { AppError } from "../utils/AppError";
 import { isRecord, validationError } from "../utils/validation";
@@ -100,6 +101,14 @@ export const deleteProduct = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const inventoryReference = await Inventory.exists({ productId: req.params.id });
+  if (inventoryReference) {
+    throw new AppError(
+      "Product is referenced by inventory and cannot be deleted",
+      409,
+      "PRODUCT_IN_USE"
+    );
+  }
   const product = await Product.findByIdAndDelete(req.params.id);
   if (!product) throw new AppError("Product not found", 404, "PRODUCT_NOT_FOUND");
   res.status(200).json({ success: true, message: "Product deleted successfully", product });

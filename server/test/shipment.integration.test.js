@@ -219,6 +219,15 @@ after(async () => {
       });
     }
 
+    if (createdIds.products.length || createdIds.warehouses.length) {
+      await mongoose.connection.collection("inventories").deleteMany({
+        $or: [
+          { productId: { $in: createdIds.products } },
+          { warehouseId: { $in: createdIds.warehouses } },
+        ],
+      });
+    }
+
     for (const collectionName of [
       "shipments",
       "inventories",
@@ -241,6 +250,18 @@ test("shipment workflow, validation, authorization, movement and transaction rol
   const identity = await api("/api/auth/me", { token: managerToken });
   assert.equal(identity.status, 200);
   assert.equal(identity.body.user.email, managerEmail);
+
+  const productDelete = await api(`/api/products/${primaryProductId}`, {
+    method: "DELETE",
+  });
+  assert.equal(productDelete.status, 409);
+  assert.equal(productDelete.body.code, "PRODUCT_IN_USE");
+
+  const warehouseDelete = await api(`/api/warehouses/${sourceWarehouseId}`, {
+    method: "DELETE",
+  });
+  assert.equal(warehouseDelete.status, 409);
+  assert.equal(warehouseDelete.body.code, "WAREHOUSE_IN_USE");
 
   let result = await api("/api/shipments", {
     method: "POST",

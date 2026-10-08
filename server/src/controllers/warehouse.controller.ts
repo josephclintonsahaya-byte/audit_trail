@@ -1,4 +1,5 @@
 import { Request, Response } from "express";
+import Inventory from "../models/Inventory";
 import Warehouse from "../models/Warehouse";
 import { AppError } from "../utils/AppError";
 import { isRecord, validationError } from "../utils/validation";
@@ -86,6 +87,14 @@ export const deleteWarehouse = async (
   req: Request,
   res: Response
 ): Promise<void> => {
+  const inventoryReference = await Inventory.exists({ warehouseId: req.params.id });
+  if (inventoryReference) {
+    throw new AppError(
+      "Warehouse is referenced by inventory and cannot be deleted",
+      409,
+      "WAREHOUSE_IN_USE"
+    );
+  }
   const warehouse = await Warehouse.findByIdAndDelete(req.params.id);
   if (!warehouse) throw new AppError("Warehouse not found", 404, "WAREHOUSE_NOT_FOUND");
   res.status(200).json({ success: true, message: "Warehouse deleted successfully", warehouse });
