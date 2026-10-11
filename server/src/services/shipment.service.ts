@@ -285,8 +285,32 @@ export const createShipment = async (
   return populateShipment(Shipment.findById(shipment._id));
 };
 
-export const listShipments = () =>
-  Shipment.find().sort({ createdAt: -1 }).populate(shipmentPopulation);
+const compareShipmentsForDisplay = (
+  left: { createdAt?: Date | string; _id?: { toString(): string } },
+  right: { createdAt?: Date | string; _id?: { toString(): string } }
+): number => {
+  const leftMs = left.createdAt ? new Date(left.createdAt).getTime() : 0;
+  const rightMs = right.createdAt ? new Date(right.createdAt).getTime() : 0;
+
+  if (leftMs !== rightMs) {
+    return rightMs - leftMs;
+  }
+
+  const leftId = left._id ? String(left._id) : "";
+  const rightId = right._id ? String(right._id) : "";
+  return rightId.localeCompare(leftId);
+};
+
+export const listShipments = async (skip: number, limit: number) => {
+  const shipments = await Shipment.find()
+    .sort({ createdAt: -1, _id: -1 })
+    .skip(skip)
+    .limit(limit)
+    .populate(shipmentPopulation);
+
+  shipments.sort(compareShipmentsForDisplay);
+  return shipments;
+};
 
 export const getShipment = async (shipmentId: string) => {
   requireObjectId(shipmentId, "shipmentId");
@@ -480,6 +504,65 @@ export const dispatchShipment = (
     expectedVersion,
     metadata
   );
+
+export const recordShipmentTemperature = async (
+  shipmentId: string,
+  temperatureC: number,
+  actorId: string,
+  expectedVersion: number,
+  metadata: EventMetadata
+) => {
+  requireObjectId(shipmentId, "shipmentId");
+  requireObjectId(actorId, "authenticated user");
+  if (!Number.isFinite(temperatureC)) {
+    throw new ShipmentServiceError("Temperature must be a finite number", 400);
+  }
+
+  const updated = await mongoose.connection.transaction(async (session) => {
+    const shipment = await Shipment.findById(shipmentId).session(session);
+    if (!shipment) {
+      throw new ShipmentServiceError("Shipment not found", 404);
+    }
+
+    const current = await requireExpectedVersion(
+      shipment,
+      actorId,
+      expectedVersion,
+      session
+    );
+    if (current.state.status !== "IN_TRANSIT") {
+      throw new ShipmentServiceError(
+        "Temperature readings can only be recorded while a shipment is in transit",
+        409
+      );
+    }
+
+    await appendShipmentEvent(
+      shipment,
+      "SHIPMENT_TEMPERATURE_RECORDED",
+      { ...eventPayloadFromShipment(shipment), temperatureC },
+      actorId,
+      current.version,
+      session,
+      metadata
+    );
+    await shipment.save({ session });
+    await createBusinessEvent({
+      eventType: "SHIPMENT_TEMPERATURE_RECORDED",
+      entityType: "Shipment",
+      entityId: shipment._id,
+      performedBy: actorId,
+      payload: {
+        shipmentNumber: shipment.shipmentNumber,
+        temperatureC,
+      },
+      session,
+    });
+    return shipment;
+  });
+
+  return populateShipment(Shipment.findById(updated._id));
+};
 
 export const cancelShipment = (
   shipmentId: string,

@@ -114,6 +114,7 @@ const handlers: Record<ShipmentDomainEventType, EventHandler> = {
     ...requireState(state, event),
     status: "CANCELLED",
   }),
+  SHIPMENT_TEMPERATURE_RECORDED: (state, event) => requireState(state, event),
   SHIPMENT_DELETED: (state, event) => ({
     ...requireState(state, event),
     deleted: true,
