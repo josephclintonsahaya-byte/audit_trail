@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Inventory from "../models/Inventory";
 import Warehouse from "../models/Warehouse";
 import { AppError } from "../utils/AppError";
+import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { isRecord, validationError } from "../utils/validation";
 
 const allowedFields = ["name", "code", "location", "status"];
@@ -54,11 +55,23 @@ export const createWarehouse = async (
 };
 
 export const getWarehouses = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const warehouses = await Warehouse.find();
-  res.status(200).json({ success: true, warehouses });
+  const pagination = parsePagination(req.query);
+  const [warehouses, total] = await Promise.all([
+    Warehouse.find()
+      .sort({ _id: 1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit),
+    Warehouse.countDocuments(),
+  ]);
+  res.status(200).json({
+    success: true,
+    warehouses,
+    data: warehouses,
+    ...paginationMetadata(pagination, total),
+  });
 };
 
 export const getWarehouseById = async (

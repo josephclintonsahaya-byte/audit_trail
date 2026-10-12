@@ -12,7 +12,9 @@ import {
   updateDraftShipment,
 } from "../services/shipment.service";
 import { AppError } from "../utils/AppError";
+import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { assertObjectId, isRecord, validationError } from "../utils/validation";
+import Shipment from "../models/Shipment";
 
 const requireActorId = (req: Request): string => {
   if (!req.user?.id) {
@@ -109,11 +111,20 @@ export const createShipmentHandler = async (
 };
 
 export const getShipments = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const shipments = await listShipments();
-  res.status(200).json({ success: true, shipments });
+  const pagination = parsePagination(req.query);
+  const [shipments, total] = await Promise.all([
+    listShipments(pagination.skip, pagination.limit),
+    Shipment.countDocuments(),
+  ]);
+  res.status(200).json({
+    success: true,
+    shipments,
+    data: shipments,
+    ...paginationMetadata(pagination, total),
+  });
 };
 
 export const getShipmentById = async (

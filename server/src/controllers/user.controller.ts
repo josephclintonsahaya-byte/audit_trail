@@ -1,6 +1,7 @@
 import { Request, Response } from "express";
 import User, { UserRole } from "../models/User";
 import { AppError } from "../utils/AppError";
+import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { isRecord, validationError } from "../utils/validation";
 
 const isValidEmail = (email: string): boolean =>
@@ -74,11 +75,23 @@ export const createUser = async (
 };
 
 export const getUsers = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const users = await User.find();
-  res.status(200).json({ success: true, users });
+  const pagination = parsePagination(req.query);
+  const [users, total] = await Promise.all([
+    User.find()
+      .sort({ _id: 1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit),
+    User.countDocuments(),
+  ]);
+  res.status(200).json({
+    success: true,
+    users,
+    data: users,
+    ...paginationMetadata(pagination, total),
+  });
 };
 
 export const getUserById = async (

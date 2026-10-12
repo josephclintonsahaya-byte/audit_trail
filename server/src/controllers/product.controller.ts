@@ -2,6 +2,7 @@ import { Request, Response } from "express";
 import Inventory from "../models/Inventory";
 import Product from "../models/Product";
 import { AppError } from "../utils/AppError";
+import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { isRecord, validationError } from "../utils/validation";
 
 const allowedFields = ["name", "sku", "category", "price", "quantity", "status"];
@@ -68,11 +69,23 @@ export const createProduct = async (
 };
 
 export const getProducts = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const products = await Product.find();
-  res.status(200).json({ success: true, products });
+  const pagination = parsePagination(req.query);
+  const [products, total] = await Promise.all([
+    Product.find()
+      .sort({ _id: 1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit),
+    Product.countDocuments(),
+  ]);
+  res.status(200).json({
+    success: true,
+    products,
+    data: products,
+    ...paginationMetadata(pagination, total),
+  });
 };
 
 export const getProductById = async (

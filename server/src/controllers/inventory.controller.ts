@@ -4,6 +4,7 @@ import Product from "../models/Product";
 import Warehouse from "../models/Warehouse";
 import { createBusinessEvent } from "../services/event.service";
 import { AppError } from "../utils/AppError";
+import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { assertObjectId, isRecord, validationError } from "../utils/validation";
 
 const requireActorId = (req: Request): string => {
@@ -81,11 +82,25 @@ export const createInventory = async (
 };
 
 export const getInventories = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const inventories = await Inventory.find().populate("productId").populate("warehouseId");
-  res.status(200).json({ success: true, inventories });
+  const pagination = parsePagination(req.query);
+  const [inventories, total] = await Promise.all([
+    Inventory.find()
+      .sort({ _id: 1 })
+      .skip(pagination.skip)
+      .limit(pagination.limit)
+      .populate("productId")
+      .populate("warehouseId"),
+    Inventory.countDocuments(),
+  ]);
+  res.status(200).json({
+    success: true,
+    inventories,
+    data: inventories,
+    ...paginationMetadata(pagination, total),
+  });
 };
 
 export const getInventoryById = async (
