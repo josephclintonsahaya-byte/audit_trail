@@ -1,13 +1,25 @@
 import { Request, Response } from "express";
-import { getEvents, getEventsByEntity } from "../services/event.service";
+import {
+  getEvents,
+  getEventsByEntity,
+  createBusinessEvent,
+} from "../services/event.service";
 import { AppError } from "../utils/AppError";
 
 export const getAllEvents = async (
-  _req: Request,
+  req: Request,
   res: Response
 ): Promise<void> => {
-  const events = await getEvents();
-  res.status(200).json({ success: true, events });
+  const result = await getEvents(
+    req.query.page,
+    req.query.limit
+  );
+  res.status(200).json({
+    success: true,
+    events: result.events,
+    data: result.events,
+    ...{ page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages },
+  });
 };
 
 export const getEventsForEntity = async (
@@ -23,6 +35,18 @@ export const getEventsForEntity = async (
     });
   }
   const entityId = String(req.params.entityId);
-  const events = await getEventsByEntity(entityType, entityId);
-  res.status(200).json({ success: true, entityType, entityId, events });
+  const result = await getEventsByEntity(
+    entityType,
+    entityId,
+    req.query.page,
+    req.query.limit
+  );
+  res.status(200).json({
+    success: true,
+    entityType,
+    entityId,
+    events: result.events,
+    data: result.events,
+    ...{ page: result.page, limit: result.limit, total: result.total, totalPages: result.totalPages },
+  });
 };

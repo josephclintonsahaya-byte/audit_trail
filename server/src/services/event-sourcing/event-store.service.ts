@@ -98,6 +98,13 @@ const validateShipmentEventPayload = (
   ) {
     errors.status = `Must be ${requiredStatus[eventType]}`;
   }
+  if (
+    eventType === "SHIPMENT_TEMPERATURE_RECORDED" &&
+    (typeof payload.temperatureC !== "number" ||
+      !Number.isFinite(payload.temperatureC))
+  ) {
+    errors.temperatureC = "Must be a finite number";
+  }
   if (Object.keys(errors).length) throw validationError(errors);
 };
 
@@ -277,6 +284,46 @@ export const reconstructShipment = async (
     version: events[events.length - 1].version,
     state,
     eventCount: events.length,
+  };
+};
+
+export const reconstructShipmentAsOf = async (
+  aggregateId: string,
+  timestamp: Date
+): Promise<{
+  aggregateId: string;
+  version: number;
+  state: ShipmentAggregateState;
+  eventCount: number;
+  asOf: Date;
+}> => {
+  const validId = assertObjectId(aggregateId, "shipment ID");
+  if (Number.isNaN(timestamp.getTime())) {
+    throw validationError({ at: "Must be a valid timestamp" });
+  }
+  const events = await EventStore.find({
+    aggregateType: "Shipment",
+    aggregateId: new Types.ObjectId(validId),
+    timestamp: { $lte: timestamp },
+  }).sort({ version: 1 }).exec();
+  if (events.length === 0) {
+    const exists = await getCurrentAggregateVersion(validId);
+    if (exists === 0) {
+      throw new AppError("Event-sourced shipment not found", 404, "SHIPMENT_NOT_FOUND");
+    }
+    throw new AppError("No shipment history exists at the requested time", 404, "HISTORY_NOT_FOUND");
+  }
+  validateShipmentEventSequence(events);
+  const state = replayShipmentEvents(events);
+  if (!state) {
+    throw new AppError("Shipment event stream is empty", 500, "EVENT_STREAM_CORRUPTED");
+  }
+  return {
+    aggregateId: validId,
+    version: events[events.length - 1].version,
+    state,
+    eventCount: events.length,
+    asOf: timestamp,
   };
 };
 
