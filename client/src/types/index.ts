@@ -9,6 +9,15 @@ export interface User {
   role: 'admin' | 'manager' | 'staff';
 }
 
+export interface ManagedUser {
+  _id?: string;
+  id?: string;
+  name: string;
+  email: string;
+  role: User['role'];
+  createdAt?: string;
+}
+
 export interface Product {
   _id?: string;
   id?: string;
@@ -89,6 +98,7 @@ export interface ShipmentReconstruction {
   version: number;
   eventCount: number;
   state: ShipmentAggregateState | null;
+  asOf?: string;
 }
 
 export interface AuditEvent {

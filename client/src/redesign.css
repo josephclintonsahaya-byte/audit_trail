@@ -384,6 +384,368 @@ input, select, textarea { min-height: 36px; border-radius: 5px; }
   .panel-card, .info-card { padding: .7rem; }
 }
 
+/* Dashboard charts use the shipment records already loaded by the page. */
+.dashboard-volume .shipment-activity-chart {
+  display: block;
+  height: 146px;
+  border: 0;
+  padding: 0;
+}
+.dashboard-status .status-donut {
+  position: relative;
+  display: block;
+  isolation: auto;
+  overflow: hidden;
+  background: transparent;
+}
+.dashboard-status .status-donut::before { display: none; }
+.status-donut__center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+.status-donut__center strong { color: var(--navy); font-size: 1.5rem; line-height: 1.1; }
+.status-donut__center span { margin-top: .2rem; color: var(--text-soft); font-size: .7rem; }
+.dashboard-records .dashboard-shipments table { min-width: 640px; }
+
+/* Inventory ledger follows the compact reference while keeping overflow inside the table. */
+.inventory-page { min-width: 0; }
+.inventory-page > .page-header { align-items: center; }
+.inventory-ledger .panel-card__header { align-items: center; }
+.inventory-filters { display: grid; grid-template-columns: minmax(220px, 1fr) auto minmax(190px, .85fr); gap: .5rem; margin-bottom: .75rem; }
+.inventory-filters input, .inventory-filters select { min-width: 0; min-height: 38px; }
+.inventory-table-wrap { max-width: 100%; overflow-x: auto; overscroll-behavior-inline: contain; }
+.inventory-table { width: 100%; min-width: 1160px; table-layout: fixed; }
+.inventory-table th, .inventory-table td { padding: .42rem .52rem; vertical-align: middle; }
+.inventory-table th { white-space: nowrap; }
+.inventory-table th:nth-child(1) { width: 18%; }
+.inventory-table th:nth-child(2) { width: 14%; }
+.inventory-table th:nth-child(3) { width: 16%; }
+.inventory-table th:nth-child(4) { width: 9%; }
+.inventory-table th:nth-child(5) { width: 10%; }
+.inventory-table th:nth-child(6) { width: 14%; }
+.inventory-table th:nth-child(7) { width: 19%; }
+.inventory-identifier { display: grid; min-width: 0; grid-template-columns: minmax(0,1fr) auto; align-items: center; gap: .12rem .35rem; }
+.inventory-identifier > span { overflow: hidden; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-identifier code { overflow: hidden; color: var(--text-soft); font-size: .64rem; text-overflow: ellipsis; white-space: nowrap; }
+.inventory-copy-button { grid-column: 2; grid-row: 1 / span 2; width: 25px; height: 25px; padding: 0; border: 1px solid var(--border); border-radius: 4px; background: #fff; color: var(--text-soft); cursor: pointer; }
+.inventory-stock-badge { display: inline-flex; min-height: 23px; align-items: center; padding: .16rem .42rem; border: 1px solid transparent; border-radius: 4px; font-size: .63rem; font-weight: 700; text-transform: uppercase; white-space: nowrap; }
+.inventory-stock-badge--in-stock { border-color: #b8dfc8; background: #e6f5eb; color: #287049; }
+.inventory-stock-badge--low-stock { border-color: #ead29f; background: #fff3d9; color: #8d6417; }
+.inventory-stock-badge--out-of-stock { border-color: #e7baba; background: #fde8e8; color: #983c3c; }
+.inventory-row-actions { display: flex; align-items: center; gap: .28rem; white-space: nowrap; }
+.inventory-row-actions .button { min-height: 29px; padding: .25rem .4rem; font-size: .65rem; }
+.inventory-row-actions .button--primary { color: #fff; }
+.inventory-modal-backdrop { position: fixed; z-index: 50; inset: 0; display: grid; place-items: center; overflow: auto; padding: 1rem; background: rgba(12,27,42,.48); }
+.inventory-modal { width: min(100%, 560px); max-height: min(90vh, 760px); overflow: auto; padding: 1.1rem; border: 1px solid var(--border); border-radius: 7px; background: #fff; box-shadow: 0 18px 50px rgba(12,27,42,.2); }
+.inventory-detail-list { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: .1rem 1rem; margin: 0 0 1rem; }
+.inventory-detail-list > div { min-width: 0; padding: .6rem 0; border-bottom: 1px solid var(--border); }
+.inventory-detail-list dt { margin-bottom: .18rem; color: var(--text-soft); font-size: .69rem; }
+.inventory-detail-list dd { overflow-wrap: anywhere; margin: 0; color: var(--text); font-size: .8rem; font-weight: 600; }
+.inventory-edit-form { display: flex; align-items: end; gap: .6rem; }
+.inventory-edit-form label { display: grid; flex: 1; gap: .3rem; }
+.inventory-history-list { display: grid; gap: 0; margin: 0; padding: 0; list-style: none; }
+.inventory-history-list li { display: flex; align-items: center; justify-content: space-between; gap: .8rem; padding: .7rem .1rem; border-bottom: 1px solid var(--border); }
+.inventory-history-list li > div { display: grid; gap: .16rem; }
+.inventory-history-list li strong { color: var(--text); font-size: .78rem; }
+.inventory-history-list li span, .inventory-history-list li time { color: var(--text-soft); font-size: .7rem; }
+.inventory-overview { margin-top: .1rem; }
+
+@media (max-width: 760px) {
+  .inventory-page > .page-header { align-items: flex-start; }
+  .inventory-page > .page-header .page-header__actions { width: 100%; }
+  .inventory-page > .page-header .page-header__actions .button { width: 100%; }
+  .inventory-filters { grid-template-columns: minmax(0,1fr) auto; }
+  .inventory-filters select { grid-column: 1 / -1; }
+  .inventory-detail-list { grid-template-columns: minmax(0,1fr); }
+  .inventory-modal { padding: .85rem; }
+}
+
+@media (max-width: 420px) {
+  .inventory-filters { grid-template-columns: minmax(0,1fr); }
+  .inventory-filters select { grid-column: 1; }
+  .inventory-filters > .button { min-height: 37px; }
+  .inventory-history-button { min-width: 0; }
+}
+
+/* Reference-led enterprise login screen */
+.login-page {
+  display: grid;
+  min-height: 100vh;
+  min-height: 100svh;
+  place-items: center;
+  padding: clamp(1rem, 4vw, 2.5rem);
+  background: #edf2f5;
+}
+
+.login-card {
+  display: grid;
+  width: min(100%, 1070px);
+  min-height: 548px;
+  grid-template-columns: minmax(0, 1.48fr) minmax(360px, 1fr);
+  overflow: hidden;
+  padding: 0;
+  border: 1px solid #d9e0e6;
+  border-radius: 9px;
+  background: #fff;
+  box-shadow: 0 14px 38px rgba(21, 42, 62, 0.09);
+}
+
+.login-card__brand {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(2.25rem, 5vw, 4rem);
+  background: linear-gradient(145deg, #0c1b34 0%, #10203d 100%);
+  color: #fff;
+}
+
+.login-card__brand::after {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, rgba(12, 27, 52, 0.15), rgba(12, 27, 52, 0.42));
+  content: '';
+  pointer-events: none;
+}
+
+.login-network {
+  position: absolute;
+  top: 0;
+  left: -3.5rem;
+  width: min(80%, 460px);
+  height: auto;
+  overflow: visible;
+  opacity: 0.24;
+}
+
+.login-network > circle,
+.login-network > ellipse {
+  stroke: #9bb5d4;
+  stroke-width: 1.2;
+}
+
+.login-network > path {
+  stroke: #849fbe;
+  stroke-width: 1;
+}
+
+.login-network g circle {
+  fill: #a8c2e1;
+  stroke: #c3d4e8;
+  stroke-width: 1.2;
+}
+
+.login-card__brand-copy {
+  position: relative;
+  z-index: 1;
+  max-width: 560px;
+  margin-top: 0.1rem;
+}
+
+.login-card__brand h1 {
+  margin: 0;
+  color: #fff;
+  font-size: clamp(2rem, 3.3vw, 3rem);
+  font-weight: 760;
+  letter-spacing: -0.035em;
+  line-height: 1.12;
+  overflow-wrap: anywhere;
+}
+
+.login-card__brand p {
+  margin: 1.15rem 0 0;
+  color: #d0d9e6;
+  font-size: clamp(1rem, 1.5vw, 1.25rem);
+  letter-spacing: 0.005em;
+}
+
+.login-card__form-panel {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  justify-content: center;
+  padding: clamp(2rem, 4vw, 2.9rem) clamp(1.5rem, 3.1vw, 2.5rem);
+  background: #fff;
+}
+
+.login-card__header {
+  margin-bottom: 1.8rem;
+}
+
+.login-card__header h2 {
+  margin: 0;
+  color: #15202b;
+  font-size: 1.35rem;
+  font-weight: 650;
+  letter-spacing: -0.025em;
+}
+
+.login-card__header p {
+  margin: 0.3rem 0 0;
+  color: #64717d;
+  font-size: 0.88rem;
+}
+
+.login-card__form-panel .auth-panel--login {
+  display: grid;
+  width: 100%;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
+  padding: 0;
+}
+
+.login-card__form-panel .auth-field {
+  display: grid;
+  min-width: 0;
+  gap: 0.38rem;
+  margin: 0;
+  color: #1e2832;
+  font-size: 0.88rem;
+  font-weight: 520;
+}
+
+.auth-field__control {
+  position: relative;
+  display: flex;
+  min-width: 0;
+  align-items: center;
+}
+
+.auth-field__control svg {
+  position: absolute;
+  z-index: 1;
+  left: 0.75rem;
+  width: 19px;
+  height: 19px;
+  flex: 0 0 auto;
+  stroke: #677582;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.65;
+  pointer-events: none;
+}
+
+.login-card__form-panel .auth-field input {
+  width: 100%;
+  min-width: 0;
+  min-height: 43px;
+  padding: 0.55rem 0.7rem 0.55rem 2.55rem;
+  border: 1px solid #c8cdd2;
+  border-radius: 6px;
+  outline: none;
+  background: #fff;
+  color: #172535;
+  font: inherit;
+  box-shadow: inset 0 1px 2px rgba(12, 27, 52, 0.025);
+}
+
+.login-card__form-panel .auth-field input:focus-visible {
+  border-color: #3472c4;
+  box-shadow: 0 0 0 3px rgba(52, 114, 196, 0.16);
+}
+
+.login-card__form-panel .auth-panel--login .button {
+  width: 100%;
+  min-height: 43px;
+  margin-top: 0.2rem;
+  border: 1px solid #245bb5;
+  border-radius: 6px;
+  background: #2862c2;
+  color: #fff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  box-shadow: 0 1px 2px rgba(10, 34, 75, 0.16);
+}
+
+.login-card__form-panel .auth-panel--login .button:hover:not(:disabled) {
+  background: #2056ad;
+}
+
+.login-card__form-panel .auth-panel--login .button:focus-visible {
+  outline: 3px solid rgba(40, 98, 194, 0.3);
+  outline-offset: 2px;
+}
+
+.login-card__form-panel .auth-panel--login .button:disabled {
+  cursor: wait;
+  opacity: 0.75;
+}
+
+.login-card__form-panel .auth-error {
+  margin: 0;
+}
+
+@media (max-width: 900px) {
+  .login-card {
+    width: min(100%, 560px);
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .login-card__brand {
+    min-height: 235px;
+    padding: 2rem clamp(1.5rem, 7vw, 3rem);
+  }
+
+  .login-network {
+    top: -3rem;
+    left: -2.7rem;
+    width: min(72%, 390px);
+  }
+
+  .login-card__brand h1 {
+    font-size: clamp(1.8rem, 6vw, 2.45rem);
+  }
+
+  .login-card__brand p {
+    margin-top: 0.8rem;
+    font-size: 1rem;
+  }
+
+  .login-card__form-panel {
+    padding: 2rem clamp(1.5rem, 7vw, 3rem) 2.25rem;
+  }
+}
+
+@media (max-width: 420px) {
+  .login-page {
+    padding: 0.75rem;
+  }
+
+  .login-card {
+    width: 100%;
+    border-radius: 8px;
+  }
+
+  .login-card__brand {
+    min-height: 205px;
+    padding: 1.5rem 1.2rem;
+  }
+
+  .login-card__brand h1 {
+    font-size: clamp(1.55rem, 7vw, 1.95rem);
+    letter-spacing: -0.04em;
+  }
+
+  .login-card__brand p {
+    font-size: 0.9rem;
+  }
+
+  .login-card__form-panel {
+    padding: 1.65rem 1.2rem 1.8rem;
+  }
+
+  .login-card__header {
+    margin-bottom: 1.3rem;
+  }
+}
+
 /* Keep operational tables close to the reference's compact, scan-friendly rows. */
 .shipment-log .table-wrap table { width: 100%; min-width: 1160px; table-layout: fixed; }
 .shipment-log th:nth-child(1), .shipment-log td:nth-child(1) { width: 21%; }

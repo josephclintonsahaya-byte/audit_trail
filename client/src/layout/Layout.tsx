@@ -24,6 +24,7 @@ function Layout({ user, onLogout }: LayoutProps) {
   return (
     <div className={`app-shell${sidebarVisible ? '' : ' app-shell--sidebar-hidden'}`}>
       <Navbar
+        user={user}
         mobileOpen={mobileMenuOpen}
         onCloseMobile={() => setMobileMenuOpen(false)}
       />
