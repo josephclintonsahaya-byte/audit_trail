@@ -23,11 +23,11 @@ function Pagination({ page, totalPages, onPageChange }: PaginationProps) {
 
   return (
     <div className="pagination">
-      <button className="button button--ghost" onClick={handlePrevPage} disabled={page === 1} aria-label="Previous page">
+      <button type="button" className="button button--ghost" onClick={handlePrevPage} disabled={page === 1} aria-label="Previous page">
         Previous
       </button>
       <span className="pagination__info">Page {page} of {totalPages}</span>
-      <button className="button button--ghost" onClick={handleNextPage} disabled={page === totalPages} aria-label="Next page">
+      <button type="button" className="button button--ghost" onClick={handleNextPage} disabled={page === totalPages} aria-label="Next page">
         Next
       </button>
     </div>

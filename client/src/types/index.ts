@@ -112,19 +112,3 @@ export interface AuditEvent {
   timestamp?: string;
   createdAt?: string;
 }
-
-export interface ApiResponse<T> {
-  success: boolean;
-  message?: string;
-  data?: T;
-  product?: T;
-  products?: T;
-  shipment?: T;
-  shipments?: T;
-  inventory?: T;
-  inventories?: T;
-  events?: T;
-  user?: User;
-  token?: string;
-  [key: string]: unknown;
-}

@@ -32,38 +32,60 @@ const buildUrl = (path: string): string => {
 
 export const getAuthHeaders = (includeJson = true): Headers => {
   const headers = new Headers();
-  if (includeJson) {
-    headers.set('Content-Type', 'application/json');
-  }
+  if (includeJson) headers.set('Content-Type', 'application/json');
 
   const token = getStoredToken();
-  if (token) {
-    headers.set('Authorization', `Bearer ${token}`);
-  }
-
+  if (token) headers.set('Authorization', `Bearer ${token}`);
   return headers;
 };
 
+const safeMessageForStatus = (status: number): string => {
+  if (status === 401) return 'Your session has expired. Please sign in again.';
+  if (status === 403) return 'You do not have permission to complete this action.';
+  if (status === 404) return 'The requested record could not be found.';
+  if (status === 409) return 'This record changed before your update could be saved. Refresh and try again.';
+  if (status === 400 || status === 422) return 'Check the information you entered and try again.';
+  if (status >= 500) return 'The service is temporarily unavailable. Please try again.';
+  return 'The request could not be completed. Please try again.';
+};
+
+const asRecord = (value: unknown): Record<string, unknown> =>
+  typeof value === 'object' && value !== null && !Array.isArray(value)
+    ? value as Record<string, unknown>
+    : {};
+
+const parseResponse = async (response: Response): Promise<unknown> => {
+  if (response.status === 204) return {};
+  const contentType = response.headers.get('content-type') ?? '';
+  if (contentType.includes('application/json')) {
+    return response.json().catch(() => ({}));
+  }
+  return {};
+};
+
 export const apiRequest = async <T>(path: string, options: RequestInit = {}): Promise<T> => {
-  const requestOptions = { ...options };
-  const shouldIncludeJson = !requestOptions.body || requestOptions.method === 'GET' ? false : true;
+  const headers = new Headers(getAuthHeaders(false));
+  new Headers(options.headers).forEach((value, key) => headers.set(key, value));
 
-  const response = await fetch(buildUrl(path), {
-    ...requestOptions,
-    headers: {
-      ...Object.fromEntries(getAuthHeaders(shouldIncludeJson).entries()),
-      ...(requestOptions.headers ?? {}),
-    },
-  });
+  if (options.body !== undefined && typeof options.body === 'string' && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
 
-  const payload = await response.json().catch(() => ({}));
+  let response: Response;
+  try {
+    response = await fetch(buildUrl(path), { ...options, headers });
+  } catch (error) {
+    if (error instanceof Error && error.name === 'AbortError') throw error;
+    throw new ApiError('Unable to reach the service. Check your connection and try again.', 0);
+  }
 
+  const payload = asRecord(await parseResponse(response));
   if (!response.ok) {
     throw new ApiError(
-      typeof payload.message === 'string' ? payload.message : 'Request failed',
+      safeMessageForStatus(response.status),
       response.status,
       typeof payload.code === 'string' ? payload.code : undefined,
-      payload.errors && typeof payload.errors === 'object' ? (payload.errors as Record<string, unknown>) : undefined,
+      asRecord(payload.errors),
     );
   }
 
