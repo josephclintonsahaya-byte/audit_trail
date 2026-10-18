@@ -14,18 +14,38 @@ const readMotionPreference = (): boolean => {
   return window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 };
 
+const hasSavedMotionPreference = (): boolean => {
+  try {
+    return window.localStorage.getItem(REDUCE_MOTION_KEY) !== null;
+  } catch {
+    return false;
+  }
+};
+
 function Settings({ user }: { user: User | null }) {
   const [reduceMotion, setReduceMotion] = useState(readMotionPreference);
+  const [hasMotionOverride, setHasMotionOverride] = useState(hasSavedMotionPreference);
   const [storageNotice, setStorageNotice] = useState<string | null>(null);
 
   useEffect(() => {
     const root = document.documentElement;
-    if (reduceMotion) root.dataset.reduceMotion = 'true';
-    else delete root.dataset.reduceMotion;
-  }, [reduceMotion]);
+    const systemPreference = window.matchMedia('(prefers-reduced-motion: reduce)');
+
+    if (hasMotionOverride) {
+      root.dataset.reduceMotion = String(reduceMotion);
+      return;
+    }
+
+    delete root.dataset.reduceMotion;
+    const handleSystemPreferenceChange = (event: MediaQueryListEvent) => setReduceMotion(event.matches);
+    systemPreference.addEventListener('change', handleSystemPreferenceChange);
+    return () => systemPreference.removeEventListener('change', handleSystemPreferenceChange);
+  }, [hasMotionOverride, reduceMotion]);
 
   const handleMotionChange = (enabled: boolean) => {
     setReduceMotion(enabled);
+    setHasMotionOverride(true);
+    document.documentElement.dataset.reduceMotion = String(enabled);
     try {
       window.localStorage.setItem(REDUCE_MOTION_KEY, String(enabled));
       setStorageNotice(null);

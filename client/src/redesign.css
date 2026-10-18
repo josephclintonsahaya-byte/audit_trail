@@ -73,6 +73,20 @@ input, select, textarea { min-height: 36px; border-radius: 5px; }
 @media (max-width: 760px) { .page-shell { padding: 1rem .85rem 2rem; } .topbar { padding: .6rem .85rem; } .stats-grid, .stats-grid--three { grid-template-columns: repeat(2,minmax(0,1fr)); } .dashboard-grid, .dashboard-grid + .dashboard-grid { grid-template-columns: minmax(0,1fr); } .page-header--split { align-items: flex-start; } .page-header__actions { justify-content: flex-start; } .table-wrap { margin-inline: 0; } }
 @media (max-width: 420px) { .stats-grid { grid-template-columns: minmax(0,1fr); } .stat-card { display: grid; grid-template-columns: 1fr auto; align-items: center; column-gap: .6rem; } .stat-card .eyebrow { grid-column: 1; } .stat-card h3 { grid-column: 2; grid-row: 1 / span 2; } .stat-card > span { grid-column: 1; } }
 
+/* Audit filters and on-demand payload details stay usable on narrow workspaces. */
+.toolbar--stacked > label { display: grid; gap: .3rem; min-width: 0; }
+.toolbar--stacked > label > span { color: var(--muted, #617286); font-size: .75rem; font-weight: 600; }
+.audit-search-field { flex: 1 1 280px; }
+.audit-table { min-width: 820px; }
+.audit-details-button { min-height: 2rem; padding: .3rem .55rem; white-space: nowrap; }
+.audit-payload { max-width: min(32rem, 75vw); max-height: 18rem; overflow: auto; margin-top: .45rem; padding: .55rem; border: 1px solid var(--border); border-radius: 5px; background: #f7f9fb; }
+.audit-payload pre { margin: 0; white-space: pre-wrap; overflow-wrap: anywhere; font: .75rem/1.45 ui-monospace, SFMono-Regular, Consolas, monospace; }
+@media (max-width: 760px) {
+  .toolbar--stacked > label, .audit-search-field { flex: 1 1 100%; }
+  .audit-table { min-width: 820px; }
+  .audit-payload { max-width: 65vw; }
+}
+
 
 /* Operational dashboard composition */
 .dashboard-metrics { grid-template-columns: repeat(4,minmax(0,1fr)); }
@@ -850,6 +864,10 @@ html[data-reduce-motion="true"] *::after {
   .shipment-log .table-wrap { overflow-x: auto; }
   .shipment-log .table-wrap table { min-width: 1160px; }
   .audit-table { min-width: 760px; }
+  .row-actions .button,
+  .users-actions .button,
+  .inventory-row-actions .button,
+  .shipment-log .row-actions--stacked .button { min-height: 36px; }
 }
 
 

@@ -1,22 +1,24 @@
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { BrowserRouter, Navigate, Route, Routes, useNavigate } from 'react-router-dom';
 import './App.css';
 import './redesign.css';
 import ProtectedRoute from './components/ProtectedRoute';
 import Layout from './layout/Layout';
-import AuditTrail from './pages/AuditTrail';
-import Dashboard from './pages/Dashboard';
-import Inventory from './pages/Inventory';
-import Login from './pages/Login';
-import Products from './pages/Products';
-import ShipmentDetails from './pages/ShipmentDetails';
-import Shipments from './pages/Shipments';
-import Settings from './pages/Settings';
-import Users from './pages/Users';
-import Warehouses from './pages/Warehouses';
+import LoadingState from './components/LoadingState';
 import { clearSession, fetchCurrentUser, login } from './services/authService';
 import { getStoredToken } from './services/api';
 import type { User } from './types';
+
+const AuditTrail = lazy(() => import('./pages/AuditTrail'));
+const Dashboard = lazy(() => import('./pages/Dashboard'));
+const Inventory = lazy(() => import('./pages/Inventory'));
+const Login = lazy(() => import('./pages/Login'));
+const Products = lazy(() => import('./pages/Products'));
+const ShipmentDetails = lazy(() => import('./pages/ShipmentDetails'));
+const Shipments = lazy(() => import('./pages/Shipments'));
+const Settings = lazy(() => import('./pages/Settings'));
+const Users = lazy(() => import('./pages/Users'));
+const Warehouses = lazy(() => import('./pages/Warehouses'));
 
 function AppRoutes() {
   const [user, setUser] = useState<User | null>(null);
@@ -85,7 +87,7 @@ function AppRoutes() {
   if (!ready) {
     return (
       <div className="app-shell app-shell--loading">
-        <div className="spinner" aria-label="Checking authentication" />
+        <div className="spinner" role="status" aria-live="polite" aria-label="Checking authentication" />
       </div>
     );
   }
@@ -93,7 +95,7 @@ function AppRoutes() {
   if (authError) {
     return (
       <main className="login-page">
-        <section className="state-panel state-panel--error">
+        <section className="state-panel state-panel--error" role="alert">
           <h1>Unable to verify your session</h1>
           <p>{authError}</p>
           <div className="action-row">
@@ -110,6 +112,7 @@ function AppRoutes() {
   }
 
   return (
+    <Suspense fallback={<main className="page-shell"><LoadingState message="Loading workspace…" /></main>}>
     <Routes>
       <Route path="/login" element={user ? <Navigate to="/" replace /> : <Login onLogin={handleLogin} />} />
       <Route element={<ProtectedRoute ready={ready} user={user} />}>
@@ -129,6 +132,7 @@ function AppRoutes() {
       </Route>
       <Route path="*" element={<Navigate to={user ? '/' : '/login'} replace />} />
     </Routes>
+    </Suspense>
   );
 }
 
