@@ -17,10 +17,30 @@ const isPayloadTooLargeError = (error: unknown): boolean =>
 
 export const errorHandler: ErrorRequestHandler = (
   error,
-  _req,
+  req,
   res,
   _next
 ) => {
+  const logServerError = (event: string, status: number, errorType: string, code?: string): void => {
+    const routePath = req.route?.path;
+    const route = typeof routePath === "string"
+      ? `${req.baseUrl ?? ""}${routePath}`
+      : req.baseUrl || "unmatched";
+    const correlationId = typeof req.get === "function"
+      ? req.get("x-correlation-id")?.slice(0, 128)
+      : undefined;
+    console.error(JSON.stringify({
+      level: "error",
+      event,
+      method: req.method || "UNKNOWN",
+      route,
+      status,
+      errorType,
+      ...(code ? { code } : {}),
+      ...(correlationId ? { correlationId } : {}),
+    }));
+  };
+
   if (res.headersSent) {
     _next(error);
     return;
@@ -45,6 +65,9 @@ export const errorHandler: ErrorRequestHandler = (
   }
 
   if (error instanceof AppError) {
+    if (error.statusCode >= 500) {
+      logServerError("http.application_error", error.statusCode, error.name, error.code);
+    }
     res.status(error.statusCode).json({
       success: false,
       message: error.message,
@@ -134,7 +157,11 @@ export const errorHandler: ErrorRequestHandler = (
     return;
   }
 
-  console.error("Unhandled request error:", error);
+  logServerError(
+    "http.unhandled_error",
+    500,
+    error instanceof Error ? error.name : "UnknownError",
+  );
   res.status(500).json({
     success: false,
     message: "Internal server error",

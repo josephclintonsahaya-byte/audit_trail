@@ -7,6 +7,9 @@ import { AppError } from "../utils/AppError";
 
 const SALT_ROUNDS = 12;
 
+export const hashPassword = (password: string): Promise<string> =>
+  bcrypt.hash(password, SALT_ROUNDS);
+
 export class AuthServiceError extends AppError {
   constructor(
     message: string,
@@ -73,7 +76,7 @@ export const registerUser = async (input: RegisterUserInput) => {
     throw new AuthServiceError("New accounts can only register as staff", 400);
   }
 
-  const passwordHash = await bcrypt.hash(input.password, SALT_ROUNDS);
+  const passwordHash = await hashPassword(input.password);
 
   try {
     const user = await User.create({

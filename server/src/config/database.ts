@@ -1,6 +1,7 @@
 import mongoose from "mongoose";
 import dotenv from "dotenv";
 import EventStore from "../models/EventStore";
+import ShipmentProjection from "../models/ShipmentProjection";
 
 dotenv.config();
 
@@ -13,8 +14,13 @@ const connectDatabase = async (): Promise<void> => {
 
   await mongoose.connect(mongoUri);
   await EventStore.init();
+  await ShipmentProjection.init();
 
-  console.log("MongoDB connected successfully");
+  console.log(JSON.stringify({
+    level: "info",
+    event: "database.connected",
+    subsystem: "mongodb",
+  }));
 };
 
 export default connectDatabase;

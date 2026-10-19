@@ -1,4 +1,5 @@
 import express from "express";
+import helmet from "helmet";
 import userRoutes from "./routes/user.routes";
 import productRoutes from "./routes/product.routes";
 import warehouseRoutes from "./routes/warehouse.routes";
@@ -13,6 +14,13 @@ import { AppError } from "./utils/AppError";
 
 const app = express();
 
+app.disable("x-powered-by");
+app.use(
+  helmet({
+    contentSecurityPolicy: false,
+    hsts: false,
+  })
+);
 app.use(express.json());
 
 app.use("/api/users", userRoutes);
