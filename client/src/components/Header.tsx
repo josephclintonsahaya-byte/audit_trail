@@ -1,3 +1,4 @@
+import { useLocation } from 'react-router-dom';
 import type { User } from '../types';
 
 type HeaderProps = {
@@ -8,6 +9,27 @@ type HeaderProps = {
 };
 
 function Header({ user, onLogout, sidebarOpen, onToggleMenu }: HeaderProps) {
+  const { pathname } = useLocation();
+  const pageContext = pathname === '/'
+    ? 'Dashboard'
+    : pathname === '/shipments'
+      ? 'Shipments'
+      : pathname.startsWith('/shipments/')
+        ? 'Shipment forensics'
+        : pathname === '/inventory'
+          ? 'Inventory'
+          : pathname === '/products'
+            ? 'Products'
+            : pathname === '/warehouses'
+              ? 'Warehouses'
+              : pathname === '/audit'
+                ? 'Audit'
+                : pathname === '/users'
+                  ? 'Users'
+                  : pathname === '/settings'
+                    ? 'Settings'
+                    : 'Workspace';
+
   return (
     <header className="topbar">
       <button
@@ -23,7 +45,7 @@ function Header({ user, onLogout, sidebarOpen, onToggleMenu }: HeaderProps) {
         </svg>
       </button>
       <div className="topbar__intro">
-        <p className="eyebrow">Operations workspace</p>
+        <p className="eyebrow">Operations workspace / {pageContext}</p>
         <h1>Logistics Audit Platform</h1>
       </div>
 

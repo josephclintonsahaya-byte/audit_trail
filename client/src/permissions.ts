@@ -41,4 +41,8 @@ const rolePermissions: Record<User['role'], readonly Permission[]> = {
 export const hasPermission = (
   user: Pick<User, 'role'> | null,
   permission: Permission,
-): boolean => user !== null && rolePermissions[user.role].includes(permission);
+): boolean => {
+  const role = typeof user?.role === 'string' ? user.role.trim().toLowerCase() : '';
+  if (!Object.prototype.hasOwnProperty.call(rolePermissions, role)) return false;
+  return rolePermissions[role as User['role']].includes(permission);
+};
