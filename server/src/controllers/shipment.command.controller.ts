@@ -5,6 +5,7 @@ import {
   createShipmentCommand,
   deliverShipmentCommand,
   dispatchShipmentCommand,
+  recordShipmentTemperatureCommand,
 } from "../services/event-sourcing/shipment.commands.service";
 import { AppError } from "../utils/AppError";
 import { assertObjectId, isRecord, validationError } from "../utils/validation";
@@ -153,6 +154,39 @@ const parseExistingAggregateCommand = (
   return { shipmentId, expectedVersion };
 };
 
+const parseTemperatureCommand = (
+  body: unknown
+): { shipmentId: string; expectedVersion: number; temperatureC: number } => {
+  if (!isRecord(body)) {
+    throw validationError({ body: "Request body must be a JSON object" });
+  }
+  const errors = checkAllowedKeys(body, [
+    "shipmentId",
+    "expectedVersion",
+    "temperatureC",
+  ]);
+  let command: { shipmentId: string; expectedVersion: number };
+  try {
+    command = parseExistingAggregateCommand({
+      shipmentId: body.shipmentId,
+      expectedVersion: body.expectedVersion,
+    });
+  } catch (error) {
+    if (error instanceof AppError && error.details) Object.assign(errors, error.details);
+    else throw error;
+    command = { shipmentId: "", expectedVersion: 0 };
+  }
+  const temperatureC = body.temperatureC;
+  if (typeof temperatureC !== "number" || !Number.isFinite(temperatureC)) {
+    errors.temperatureC = "Must be a finite number";
+  }
+  if (Object.keys(errors).length) throw validationError(errors);
+  if (typeof temperatureC !== "number") {
+    throw validationError({ temperatureC: "Must be a finite number" });
+  }
+  return { ...command, temperatureC };
+};
+
 const respondWithCommand = (
   res: Response,
   result: Awaited<ReturnType<typeof createShipmentCommand>>,
@@ -227,4 +261,18 @@ export const cancelShipmentCommandHandler = async (
     getCommandContext(req)
   );
   respondWithCommand(res, result, "Shipment cancelled successfully");
+};
+
+export const recordShipmentTemperatureCommandHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const command = parseTemperatureCommand(req.body);
+  const result = await recordShipmentTemperatureCommand(
+    command.shipmentId,
+    command.temperatureC,
+    command.expectedVersion,
+    getCommandContext(req)
+  );
+  respondWithCommand(res, result, "Shipment temperature recorded successfully");
 };

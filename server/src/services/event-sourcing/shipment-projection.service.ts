@@ -5,6 +5,8 @@ import { AppError } from "../../utils/AppError";
 import { assertObjectId } from "../../utils/validation";
 import { applyShipmentEvent } from "./shipment.reducer";
 
+const loggedProjectionFailures = new Set<string>();
+
 const isDuplicateKeyError = (error: unknown): boolean =>
   typeof error === "object" &&
   error !== null &&
@@ -141,13 +143,33 @@ export const projectPendingShipmentEvents = async (
 
   let processed = 0;
   for (const event of pendingEvents) {
+    const failureKey = `${event.aggregateId}:${event.version}`;
     try {
       if (await projectShipmentEvent(event)) processed += 1;
+      loggedProjectionFailures.delete(failureKey);
     } catch (error) {
-      console.error(
-        `Shipment projection failed for aggregate ${event.aggregateId} version ${event.version}:`,
-        error
-      );
+      if (!loggedProjectionFailures.has(failureKey)) {
+        console.error(JSON.stringify({
+          level: "error",
+          event: "shipment_projection.event_failed",
+          operation: "project_event",
+          aggregateType: event.aggregateType,
+          aggregateId: String(event.aggregateId),
+          eventId: String(event._id),
+          eventType: event.eventType,
+          eventVersion: event.version,
+          ...(typeof event.metadata?.correlationId === "string"
+            ? { correlationId: event.metadata.correlationId.slice(0, 128) }
+            : {}),
+          errorType: error instanceof Error ? error.name : "UnknownError",
+          retrying: true,
+        }));
+        loggedProjectionFailures.add(failureKey);
+        if (loggedProjectionFailures.size > 1000) {
+          const oldestFailure = loggedProjectionFailures.values().next().value;
+          if (oldestFailure) loggedProjectionFailures.delete(oldestFailure);
+        }
+      }
     }
   }
   return processed;

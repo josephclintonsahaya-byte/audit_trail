@@ -158,6 +158,13 @@ const appendWithinTransaction = async (
   }
   const currentVersion = await readCurrentVersion(aggregateId, session);
   if (input.expectedVersion !== currentVersion) {
+    logConcurrencyConflict({
+      aggregateId,
+      expectedVersion: input.expectedVersion,
+      currentVersion,
+      source: "version_check",
+      correlationId: input.metadata?.correlationId,
+    });
     throw new AppError(
       "Aggregate version conflict",
       409,
@@ -188,6 +195,26 @@ const isDuplicateKeyError = (error: unknown): boolean =>
   "code" in error &&
   error.code === 11000;
 
+const logConcurrencyConflict = (details: {
+  aggregateId: Types.ObjectId | string;
+  expectedVersion: number;
+  currentVersion?: number;
+  source: "version_check" | "unique_index";
+  correlationId?: string;
+}): void => {
+  console.warn(JSON.stringify({
+    level: "warn",
+    event: "shipment_event.concurrency_conflict",
+    operation: "append_event",
+    aggregateType: "Shipment",
+    aggregateId: String(details.aggregateId),
+    expectedVersion: details.expectedVersion,
+    ...(details.currentVersion === undefined ? {} : { currentVersion: details.currentVersion }),
+    source: details.source,
+    ...(details.correlationId ? { correlationId: details.correlationId.slice(0, 128) } : {}),
+  }));
+};
+
 export const appendEvent = async (
   input: AppendEventInput
 ): Promise<ShipmentDomainEvent> => {
@@ -198,6 +225,12 @@ export const appendEvent = async (
     );
   } catch (error) {
     if (isDuplicateKeyError(error)) {
+      logConcurrencyConflict({
+        aggregateId: input.aggregateId,
+        expectedVersion: input.expectedVersion,
+        source: "unique_index",
+        correlationId: input.metadata?.correlationId,
+      });
       throw new AppError(
         "Aggregate version conflict",
         409,
@@ -337,6 +370,12 @@ export const assertExpectedVersion = async (
   }
   const currentVersion = await readCurrentVersion(aggregateId, session);
   if (currentVersion !== expectedVersion) {
+    logConcurrencyConflict({
+      aggregateId,
+      expectedVersion,
+      currentVersion,
+      source: "version_check",
+    });
     throw new AppError(
       "Aggregate version conflict",
       409,

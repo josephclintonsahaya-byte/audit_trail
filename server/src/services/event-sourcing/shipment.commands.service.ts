@@ -5,6 +5,7 @@ import {
   createShipment,
   deliverShipment,
   dispatchShipment,
+  recordShipmentTemperature,
 } from "../shipment.service";
 import { EventMetadata } from "../../models/EventStore";
 import { reconstructShipment } from "./event-store.service";
@@ -79,6 +80,22 @@ export const cancelShipmentCommand = async (
     context.performedBy,
     expectedVersion,
     commandMetadata("CANCEL_SHIPMENT", context)
+  );
+  return commandResult(shipmentId, shipment);
+};
+
+export const recordShipmentTemperatureCommand = async (
+  shipmentId: string,
+  temperatureC: number,
+  expectedVersion: number,
+  context: ShipmentCommandContext
+) => {
+  const shipment = await recordShipmentTemperature(
+    shipmentId,
+    temperatureC,
+    context.performedBy,
+    expectedVersion,
+    commandMetadata("RECORD_SHIPMENT_TEMPERATURE", context)
   );
   return commandResult(shipmentId, shipment);
 };

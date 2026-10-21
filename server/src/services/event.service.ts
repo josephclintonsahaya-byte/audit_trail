@@ -7,6 +7,24 @@ import { paginationMetadata } from "../utils/pagination";
 const DEFAULT_PAGE = 1;
 const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 100;
+const MAX_SEARCH_LENGTH = 100;
+
+const escapeRegex = (value: string): string =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+export interface AuditEventFilters {
+  search?: unknown;
+  eventType?: unknown;
+  sort?: unknown;
+}
+
+interface EventPageResult {
+  events: unknown[];
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
 
 const parsePositiveInteger = (
   value: unknown,
@@ -79,7 +97,11 @@ export const createBusinessEvent = async ({
   return session ? event.save({ session }) : event.save();
 };
 
-export const getEvents = async (page?: unknown, limit?: unknown): Promise<any> => {
+export const getEvents = async (
+  page?: unknown,
+  limit?: unknown,
+  filters: AuditEventFilters = {}
+): Promise<EventPageResult & { eventTypes: string[] }> => {
   const parsedPage = parsePositiveInteger(page, "page", DEFAULT_PAGE);
   const parsedLimit = parsePositiveInteger(limit, "limit", DEFAULT_LIMIT);
   if (parsedLimit > MAX_LIMIT) {
@@ -91,18 +113,59 @@ export const getEvents = async (page?: unknown, limit?: unknown): Promise<any> =
     );
   }
   const skip = (parsedPage - 1) * parsedLimit;
-  const [events, total] = await Promise.all([
-    Event.find()
-      .populate("performedBy")
-      .sort({ createdAt: -1, _id: -1 })
+  if (!Number.isSafeInteger(skip)) throw validationError({ page: "Is too large" });
+  const search = filters.search === undefined ? "" : filters.search;
+  const eventType = filters.eventType === undefined ? "all" : filters.eventType;
+  const sort = filters.sort === undefined ? "newest" : filters.sort;
+  if (typeof search !== "string" || search.length > MAX_SEARCH_LENGTH) {
+    throw validationError({ search: `Must be at most ${MAX_SEARCH_LENGTH} characters` });
+  }
+  if (typeof eventType !== "string" || eventType.length > 100) {
+    throw validationError({ eventType: "Must be a valid event type" });
+  }
+  if (sort !== "newest" && sort !== "oldest") {
+    throw validationError({ sort: "Must be newest or oldest" });
+  }
+  const filter: Record<string, unknown> = {};
+  if (eventType !== "all" && eventType) filter.eventType = eventType;
+  if (search.trim()) {
+    const matcher = new RegExp(escapeRegex(search.trim()), "i");
+    const alternatives: Record<string, unknown>[] = [
+      { eventType: matcher },
+      { entityType: matcher },
+    ];
+    if (/^[a-f\d]{24}$/i.test(search.trim())) {
+      alternatives.push({ entityId: new Types.ObjectId(search.trim()) });
+    }
+    filter.$or = alternatives;
+  }
+  const sortOrder = sort === "oldest" ? 1 : -1;
+  const [events, total, eventTypes] = await Promise.all([
+    Event.find(filter)
+      .select("eventType entityType entityId performedBy createdAt timestamp")
+      .populate({ path: "performedBy", select: "name" })
+      .sort({ createdAt: sortOrder, _id: sortOrder })
       .skip(skip)
-      .limit(parsedLimit),
-    Event.countDocuments(),
+      .limit(parsedLimit)
+      .lean(),
+    Event.countDocuments(filter),
+    Event.distinct("eventType"),
   ]);
   return {
     events,
     ...paginationMetadata({ page: parsedPage, limit: parsedLimit }, total),
+    eventTypes: eventTypes.sort(),
   };
+};
+
+export const getEventDetails = async (eventId: string) => {
+  const validEventId = assertObjectId(eventId, "event ID");
+  const event = await Event.findById(validEventId)
+    .select("eventType entityType entityId performedBy payload createdAt timestamp")
+    .populate({ path: "performedBy", select: "name" })
+    .lean();
+  if (!event) throw new AppError("Audit event not found", 404, "EVENT_NOT_FOUND");
+  return event;
 };
 
 export const getEventsByEntity = async (
@@ -110,7 +173,7 @@ export const getEventsByEntity = async (
   entityId: string | Types.ObjectId,
   page?: unknown,
   limit?: unknown
-): Promise<any> => {
+): Promise<EventPageResult> => {
   if (!entityType.trim() || entityType.length > 100) {
     throw new AppError("Invalid event entity type", 400, "VALIDATION_ERROR", {
       entityType: "Must be a non-empty value of at most 100 characters",
@@ -131,12 +194,15 @@ export const getEventsByEntity = async (
     );
   }
   const skip = (parsedPage - 1) * parsedLimit;
+  if (!Number.isSafeInteger(skip)) throw validationError({ page: "Is too large" });
   const [events, total] = await Promise.all([
     Event.find({ entityType, entityId: validEntityId })
-      .populate("performedBy")
+      .select("eventType entityType entityId performedBy createdAt timestamp")
+      .populate({ path: "performedBy", select: "name" })
       .sort({ createdAt: -1, _id: -1 })
       .skip(skip)
-      .limit(parsedLimit),
+      .limit(parsedLimit)
+      .lean(),
     Event.countDocuments({ entityType, entityId: validEntityId }),
   ]);
   return {

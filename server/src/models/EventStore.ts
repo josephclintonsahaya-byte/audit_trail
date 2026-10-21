@@ -9,6 +9,7 @@ export const SHIPMENT_DOMAIN_EVENT_TYPES = [
   "SHIPMENT_DELIVERED",
   "SHIPMENT_CANCELLED",
   "SHIPMENT_DELETED",
+  "SHIPMENT_TEMPERATURE_RECORDED",
 ] as const;
 
 export type ShipmentDomainEventType =
@@ -125,6 +126,7 @@ eventStoreSchema.pre("deleteOne", { document: true, query: false }, function () 
 
 eventStoreSchema.pre(
   [
+    "update",
     "updateOne",
     "updateMany",
     "replaceOne",
@@ -138,6 +140,12 @@ eventStoreSchema.pre(
     throw immutableError();
   }
 );
+
+// Model-level bulk writes bypass query middleware, so reject the entire API.
+// appendEvent uses create/insert semantics and remains available.
+eventStoreSchema.pre("bulkWrite", function () {
+  throw immutableError();
+});
 
 const EventStore = model<ShipmentDomainEvent>("EventStore", eventStoreSchema);
 

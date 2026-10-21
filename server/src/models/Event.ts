@@ -44,6 +44,12 @@ const eventSchema = new Schema(
   }
 );
 
+// Supports per-entity history and newest/oldest ordering without a collection sort.
+eventSchema.index({ entityType: 1, entityId: 1, createdAt: -1, _id: -1 });
+// Supports the default audit feed ordering and event-type filtering.
+eventSchema.index({ eventType: 1, createdAt: -1, _id: -1 });
+eventSchema.index({ createdAt: -1, _id: -1 });
+
 const Event = model("Event", eventSchema);
 
 export default Event;

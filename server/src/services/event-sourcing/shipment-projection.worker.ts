@@ -5,6 +5,7 @@ const BATCH_SIZE = 100;
 
 let workerLoop: Promise<void> | null = null;
 let shouldStop = false;
+let workerFailureLogged = false;
 
 const delay = (milliseconds: number): Promise<void> =>
   new Promise((resolve) => setTimeout(resolve, milliseconds));
@@ -13,9 +14,19 @@ const runWorker = async (): Promise<void> => {
   while (!shouldStop) {
     try {
       const processed = await projectPendingShipmentEvents(BATCH_SIZE);
+      workerFailureLogged = false;
       if (processed === 0) await delay(POLL_INTERVAL_MS);
     } catch (error) {
-      console.error("Shipment projection worker failed to process events:", error);
+      if (!workerFailureLogged) {
+        console.error(JSON.stringify({
+          level: "error",
+          event: "shipment_projection.processing_failed",
+          operation: "project_pending_events",
+          errorType: error instanceof Error ? error.name : "UnknownError",
+          retrying: true,
+        }));
+        workerFailureLogged = true;
+      }
       await delay(POLL_INTERVAL_MS);
     }
   }
@@ -24,6 +35,7 @@ const runWorker = async (): Promise<void> => {
 export const startShipmentProjectionWorker = (): (() => Promise<void>) => {
   if (!workerLoop) {
     shouldStop = false;
+    workerFailureLogged = false;
     workerLoop = runWorker();
   }
 

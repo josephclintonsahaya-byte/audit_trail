@@ -8,7 +8,8 @@ import Shipment, {
 import Warehouse from "../models/Warehouse";
 import { createBusinessEvent } from "./event.service";
 import { AppError } from "../utils/AppError";
-import { assertObjectId } from "../utils/validation";
+import { validationError } from "../utils/validation";
+import { assertObjectId, isRecord } from "../utils/validation";
 import { EventMetadata, ShipmentDomainEventType } from "../models/EventStore";
 import {
   appendEvent,
@@ -76,6 +77,10 @@ const validateShipmentInput = async (
       "A shipment must contain at least one item",
       400
     );
+  }
+
+  if (input.items.length > 100) {
+    throw validationError({ items: "Must not exceed 100 items" });
   }
 
   const source = await Warehouse.findById(sourceId).session(session ?? null);
