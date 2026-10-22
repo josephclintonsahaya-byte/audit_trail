@@ -3,6 +3,7 @@ import User, { UserRole } from "../models/User";
 import { AppError } from "../utils/AppError";
 import { paginationMetadata, parsePagination } from "../utils/pagination";
 import { isRecord, validationError } from "../utils/validation";
+import { hashPassword } from "../services/auth.service";
 
 const isValidEmail = (email: string): boolean =>
   /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
@@ -66,11 +67,31 @@ const validateUserBody = (
   return result;
 };
 
+const validateCreateUserBody = (body: unknown) => {
+  if (!isRecord(body)) throw validationError({ body: "Request body must be a JSON object" });
+  const allowed = ["name", "email", "password", "confirmPassword", "role"];
+  const errors: Record<string, string> = {};
+  for (const field of Object.keys(body)) {
+    if (!allowed.includes(field)) errors[field] = "Field is not allowed";
+  }
+  const profile = validateUserBody({ name: body.name, email: body.email, ...(body.role !== undefined ? { role: body.role } : {}) }, false);
+  if (typeof body.password !== "string" || body.password.length < 8 || body.password.length > 128) {
+    errors.password = "Password must be between 8 and 128 characters";
+  }
+  if (typeof body.confirmPassword !== "string" || body.password !== body.confirmPassword) {
+    errors.confirmPassword = "Password confirmation does not match";
+  }
+  if (Object.keys(errors).length) throw validationError(errors);
+  return { ...profile, password: body.password as string };
+};
+
 export const createUser = async (
   req: Request,
   res: Response
 ): Promise<void> => {
-  const user = await User.create(validateUserBody(req.body, false));
+  const input = validateCreateUserBody(req.body);
+  const { password, ...profile } = input;
+  const user = await User.create({ ...profile, passwordHash: await hashPassword(password) });
   res.status(201).json({ success: true, message: "User created successfully", user });
 };
 
@@ -79,12 +100,21 @@ export const getUsers = async (
   res: Response
 ): Promise<void> => {
   const pagination = parsePagination(req.query);
+  const filter: Record<string, unknown> = {};
+  if (typeof req.query.search === "string" && req.query.search.trim()) {
+    const escaped = req.query.search.trim().replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    filter.$or = [{ name: { $regex: escaped, $options: "i" } }, { email: { $regex: escaped, $options: "i" } }];
+  }
+  if (typeof req.query.role === "string" && req.query.role) {
+    if (!["admin", "manager", "staff"].includes(req.query.role)) throw validationError({ role: "Role must be admin, manager, or staff" });
+    filter.role = req.query.role;
+  }
   const [users, total] = await Promise.all([
-    User.find()
+    User.find(filter)
       .sort({ _id: 1 })
       .skip(pagination.skip)
       .limit(pagination.limit),
-    User.countDocuments(),
+    User.countDocuments(filter),
   ]);
   res.status(200).json({
     success: true,
@@ -114,6 +144,30 @@ export const updateUser = async (
   );
   if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
   res.status(200).json({ success: true, message: "User updated successfully", user });
+};
+
+export const changeUserPassword = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  if (!isRecord(req.body)) throw validationError({ body: "Request body must be a JSON object" });
+  const errors: Record<string, string> = {};
+  for (const field of Object.keys(req.body)) {
+    if (field !== "newPassword" && field !== "confirmNewPassword") errors[field] = "Field is not allowed";
+  }
+  const { newPassword, confirmNewPassword } = req.body;
+  if (typeof newPassword !== "string" || newPassword.length < 8 || newPassword.length > 128) {
+    errors.newPassword = "Password must be between 8 and 128 characters";
+  }
+  if (typeof confirmNewPassword !== "string" || newPassword !== confirmNewPassword) {
+    errors.confirmNewPassword = "Password confirmation does not match";
+  }
+  if (Object.keys(errors).length) throw validationError(errors);
+
+  const passwordHash = await hashPassword(newPassword as string);
+  const user = await User.findByIdAndUpdate(req.params.id, { passwordHash }, { runValidators: true });
+  if (!user) throw new AppError("User not found", 404, "USER_NOT_FOUND");
+  res.status(200).json({ success: true, message: "User password changed successfully" });
 };
 
 export const deleteUser = async (
