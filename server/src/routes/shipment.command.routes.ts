@@ -4,6 +4,7 @@ import {
   createShipmentCommandHandler,
   deliverShipmentCommandHandler,
   dispatchShipmentCommandHandler,
+  recordShipmentTemperatureCommandHandler,
 } from "../controllers/shipment.command.controller";
 import { authorizeRoles } from "../middleware/authorize.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
@@ -15,5 +16,6 @@ router.post("/create", createShipmentCommandHandler);
 router.post("/dispatch", dispatchShipmentCommandHandler);
 router.post("/deliver", deliverShipmentCommandHandler);
 router.post("/cancel", cancelShipmentCommandHandler);
+router.post("/temperature", recordShipmentTemperatureCommandHandler);
 
 export default router;
