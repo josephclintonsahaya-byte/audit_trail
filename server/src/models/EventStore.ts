@@ -135,7 +135,7 @@ eventStoreSchema.pre(
     "findOneAndDelete",
     "deleteOne",
     "deleteMany",
-  ],
+  ] as const,
   function () {
     throw immutableError();
   }

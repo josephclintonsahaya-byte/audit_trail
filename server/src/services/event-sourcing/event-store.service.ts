@@ -229,7 +229,7 @@ export const appendEvent = async (
         aggregateId: input.aggregateId,
         expectedVersion: input.expectedVersion,
         source: "unique_index",
-        correlationId: input.metadata?.correlationId,
+correlationId: input.metadata?.correlationId as string | undefined,
       });
       throw new AppError(
         "Aggregate version conflict",

@@ -3,8 +3,9 @@ const { after, before, test } = require("node:test");
 const bcrypt = require("bcryptjs");
 const mongoose = require("mongoose");
 require("dotenv").config();
+require("tsx/cjs");
 
-const apiBaseUrl = process.env.API_BASE_URL || "http://localhost:5000";
+const app = require("../src/app.ts").default;
 const suffix = `${Date.now()}-${Math.floor(Math.random() * 100000)}`;
 const managerEmail = `shipment-manager-${suffix}@example.test`;
 const adminEmail = `shipment-admin-${suffix}@example.test`;
@@ -21,6 +22,8 @@ const createdIds = {
 let managerToken;
 let adminToken;
 let staffToken;
+let server;
+let apiBaseUrl;
 let sourceWarehouseId;
 let destinationWarehouseId;
 let primaryProductId;
@@ -46,6 +49,7 @@ async function api(path, { method = "GET", body, token } = {}) {
 async function createWarehouse(name, code) {
   const result = await api("/api/warehouses", {
     method: "POST",
+    token: managerToken,
     body: { name, code, location: "Integration test", status: "active" },
   });
   assert.equal(result.status, 201, JSON.stringify(result.body));
@@ -57,6 +61,7 @@ async function createWarehouse(name, code) {
 async function createProduct(name, sku) {
   const result = await api("/api/products", {
     method: "POST",
+    token: managerToken,
     body: {
       name,
       sku,
@@ -102,7 +107,7 @@ async function createShipment(items, overrides = {}) {
 }
 
 async function getInventoryQuantity(productId, warehouseId) {
-  const result = await api("/api/inventory");
+  const result = await api("/api/inventory", { token: managerToken });
   assert.equal(result.status, 200);
   const inventory = result.body.inventories.find(
     (record) =>
@@ -113,7 +118,9 @@ async function getInventoryQuantity(productId, warehouseId) {
 }
 
 async function getEntityEvents(entityType, entityId) {
-  const result = await api(`/api/events/${entityType}/${entityId}`);
+  const result = await api(`/api/events/${entityType}/${entityId}`, {
+    token: managerToken,
+  });
   assert.equal(result.status, 200);
   return result.body.events;
 }
@@ -122,6 +129,13 @@ before(async () => {
   assert.ok(process.env.MONGODB_URI, "MONGODB_URI must be set for integration tests");
   assert.ok(process.env.JWT_SECRET, "JWT_SECRET must be set for integration tests");
   await mongoose.connect(process.env.MONGODB_URI);
+
+  server = app.listen(0, "127.0.0.1");
+  await new Promise((resolve, reject) => {
+    server.once("listening", resolve);
+    server.once("error", reject);
+  });
+  apiBaseUrl = `http://127.0.0.1:${server.address().port}`;
 
   const now = new Date();
   const manager = await mongoose.connection.collection("users").insertOne({
@@ -202,6 +216,12 @@ before(async () => {
 });
 
 after(async () => {
+  if (server) {
+    await new Promise((resolve, reject) => {
+      server.close((error) => (error ? reject(error) : resolve()));
+    });
+  }
+
   if (mongoose.connection.readyState === 1) {
     const eventEntityIds = [
       ...createdIds.shipments,
@@ -215,6 +235,12 @@ after(async () => {
         ],
       });
       await mongoose.connection.collection("eventstores").deleteMany({
+        aggregateId: { $in: createdIds.shipments },
+      });
+    }
+
+    if (createdIds.shipments.length > 0) {
+      await mongoose.connection.collection("shipmentprojections").deleteMany({
         aggregateId: { $in: createdIds.shipments },
       });
     }
@@ -246,6 +272,138 @@ after(async () => {
   }
 });
 
+test("inventory mutations allow only authenticated admins and managers", async () => {
+  const productId = await createProduct(
+    `Inventory RBAC Product ${suffix}`,
+    `IR-${suffix}`.slice(0, 20)
+  );
+  const managerWarehouseId = await createWarehouse(
+    `Inventory Manager Warehouse ${suffix}`,
+    `IM-${suffix}`.slice(0, 20)
+  );
+  const adminWarehouseId = await createWarehouse(
+    `Inventory Admin Warehouse ${suffix}`,
+    `IA-${suffix}`.slice(0, 20)
+  );
+  const managerBody = {
+    productId,
+    warehouseId: managerWarehouseId,
+    quantity: 7,
+  };
+  const adminBody = {
+    productId,
+    warehouseId: adminWarehouseId,
+    quantity: 9,
+  };
+
+  for (const body of [managerBody, adminBody]) {
+    const anonymous = await api("/api/inventory", {
+      method: "POST",
+      body,
+    });
+    assert.equal(anonymous.status, 401);
+
+    const staff = await api("/api/inventory", {
+      method: "POST",
+      token: staffToken,
+      body,
+    });
+    assert.equal(staff.status, 403);
+  }
+
+  const managerCreate = await api("/api/inventory", {
+    method: "POST",
+    token: managerToken,
+    body: managerBody,
+  });
+  assert.equal(managerCreate.status, 201, JSON.stringify(managerCreate.body));
+  const managerInventoryId = managerCreate.body.inventory._id;
+  createdIds.inventories.push(new mongoose.Types.ObjectId(managerInventoryId));
+
+  const adminCreate = await api("/api/inventory", {
+    method: "POST",
+    token: adminToken,
+    body: adminBody,
+  });
+  assert.equal(adminCreate.status, 201, JSON.stringify(adminCreate.body));
+  const adminInventoryId = adminCreate.body.inventory._id;
+  createdIds.inventories.push(new mongoose.Types.ObjectId(adminInventoryId));
+
+  for (const inventoryId of [managerInventoryId, adminInventoryId]) {
+    for (const { token, expectedStatus } of [
+      { token: undefined, expectedStatus: 401 },
+      { token: staffToken, expectedStatus: 403 },
+    ]) {
+      const patch = await api(`/api/inventory/${inventoryId}`, {
+        method: "PATCH",
+        token,
+        body: { quantity: 10 },
+      });
+      assert.equal(patch.status, expectedStatus);
+
+      const deletion = await api(`/api/inventory/${inventoryId}`, {
+        method: "DELETE",
+        token,
+      });
+      assert.equal(deletion.status, expectedStatus);
+    }
+  }
+
+  const managerPatch = await api(`/api/inventory/${managerInventoryId}`, {
+    method: "PATCH",
+    token: managerToken,
+    body: { quantity: 11 },
+  });
+  assert.equal(managerPatch.status, 200, JSON.stringify(managerPatch.body));
+
+  const adminPatch = await api(`/api/inventory/${adminInventoryId}`, {
+    method: "PATCH",
+    token: adminToken,
+    body: { quantity: 12 },
+  });
+  assert.equal(adminPatch.status, 200, JSON.stringify(adminPatch.body));
+
+  const managerDelete = await api(`/api/inventory/${managerInventoryId}`, {
+    method: "DELETE",
+    token: managerToken,
+  });
+  assert.equal(managerDelete.status, 200, JSON.stringify(managerDelete.body));
+
+  const adminDelete = await api(`/api/inventory/${adminInventoryId}`, {
+    method: "DELETE",
+    token: adminToken,
+  });
+  assert.equal(adminDelete.status, 200, JSON.stringify(adminDelete.body));
+});
+
+test("product and warehouse deletion is admin-only", async () => {
+  const productId = await createProduct(
+    `Delete RBAC Product ${suffix}`,
+    `DR-${suffix}`.slice(0, 20)
+  );
+  const warehouseId = await createWarehouse(
+    `Delete RBAC Warehouse ${suffix}`,
+    `DW-${suffix}`.slice(0, 20)
+  );
+
+  for (const path of [
+    `/api/products/${productId}`,
+    `/api/warehouses/${warehouseId}`,
+  ]) {
+    const managerDelete = await api(path, {
+      method: "DELETE",
+      token: managerToken,
+    });
+    assert.equal(managerDelete.status, 403);
+
+    const adminDelete = await api(path, {
+      method: "DELETE",
+      token: adminToken,
+    });
+    assert.equal(adminDelete.status, 200, JSON.stringify(adminDelete.body));
+  }
+});
+
 test("shipment workflow, validation, authorization, movement and transaction rollback", async () => {
   const identity = await api("/api/auth/me", { token: managerToken });
   assert.equal(identity.status, 200);
@@ -253,12 +411,14 @@ test("shipment workflow, validation, authorization, movement and transaction rol
 
   const productDelete = await api(`/api/products/${primaryProductId}`, {
     method: "DELETE",
+    token: adminToken,
   });
   assert.equal(productDelete.status, 409);
   assert.equal(productDelete.body.code, "PRODUCT_IN_USE");
 
   const warehouseDelete = await api(`/api/warehouses/${sourceWarehouseId}`, {
     method: "DELETE",
+    token: adminToken,
   });
   assert.equal(warehouseDelete.status, 409);
   assert.equal(warehouseDelete.body.code, "WAREHOUSE_IN_USE");
@@ -439,7 +599,9 @@ test("shipment workflow, validation, authorization, movement and transaction rol
     assert.equal(event.performedBy._id, shipment.createdBy._id);
   }
 
-  const inventoriesResponse = await api("/api/inventory");
+  const inventoriesResponse = await api("/api/inventory", {
+    token: managerToken,
+  });
   assert.equal(inventoriesResponse.status, 200);
   const sourceInventoryId = inventoriesResponse.body.inventories.find(
     (entry) =>
@@ -467,12 +629,20 @@ test("shipment workflow, validation, authorization, movement and transaction rol
   const increaseEvent = destinationInventoryEvents.find(
     (event) => event.eventType === "STOCK_INCREASED"
   );
-  assert.equal(decreaseEvent.payload.previousQuantity, 10);
-  assert.equal(decreaseEvent.payload.newQuantity, 7);
-  assert.equal(decreaseEvent.payload.quantity, 3);
-  assert.equal(increaseEvent.payload.previousQuantity, 2);
-  assert.equal(increaseEvent.payload.newQuantity, 5);
-  assert.equal(increaseEvent.payload.quantity, 3);
+  const decreaseDetails = await api(`/api/events/detail/${decreaseEvent._id}`, {
+    token: managerToken,
+  });
+  const increaseDetails = await api(`/api/events/detail/${increaseEvent._id}`, {
+    token: managerToken,
+  });
+  assert.equal(decreaseDetails.status, 200, JSON.stringify(decreaseDetails.body));
+  assert.equal(increaseDetails.status, 200, JSON.stringify(increaseDetails.body));
+  assert.equal(decreaseDetails.body.event.payload.previousQuantity, 10);
+  assert.equal(decreaseDetails.body.event.payload.newQuantity, 7);
+  assert.equal(decreaseDetails.body.event.payload.quantity, 3);
+  assert.equal(increaseDetails.body.event.payload.previousQuantity, 2);
+  assert.equal(increaseDetails.body.event.payload.newQuantity, 5);
+  assert.equal(increaseDetails.body.event.payload.quantity, 3);
   assert.equal(decreaseEvent.performedBy._id, shipment.createdBy._id);
   assert.equal(increaseEvent.performedBy._id, shipment.createdBy._id);
 
@@ -526,12 +696,24 @@ test("shipment workflow, validation, authorization, movement and transaction rol
     rollbackEvents.some((event) => event.eventType === "SHIPMENT_DELIVERED"),
     false
   );
-  const allEvents = (await api("/api/events")).body.events;
+  const inventoryMovementSummaries = [
+    ...await getEntityEvents("Inventory", sourceInventoryId),
+    ...await getEntityEvents("Inventory", destinationInventoryId),
+  ].filter((event) =>
+    ["STOCK_DECREASED", "STOCK_INCREASED"].includes(event.eventType)
+  );
+  const inventoryMovementDetails = await Promise.all(
+    inventoryMovementSummaries.map(async (event) => {
+      const detail = await api(`/api/events/detail/${event._id}`, {
+        token: managerToken,
+      });
+      assert.equal(detail.status, 200, JSON.stringify(detail.body));
+      return detail.body.event;
+    })
+  );
   assert.equal(
-    allEvents.some(
-      (event) =>
-        ["STOCK_DECREASED", "STOCK_INCREASED"].includes(event.eventType) &&
-        String(event.payload.shipmentId) === rollbackShipment._id
+    inventoryMovementDetails.some(
+      (event) => String(event.payload.shipmentId) === rollbackShipment._id
     ),
     false
   );

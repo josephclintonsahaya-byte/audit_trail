@@ -29,6 +29,10 @@ test("successful responses retain their status and include the success flag", as
   assert.equal(response.status, 200);
   assert.equal(body.success, true);
   assert.equal(body.status, "ok");
+  assert.equal(response.headers.get("x-content-type-options"), "nosniff");
+  assert.equal(response.headers.get("x-frame-options"), "SAMEORIGIN");
+  assert.equal(response.headers.get("referrer-policy"), "no-referrer");
+  assert.equal(response.headers.has("x-powered-by"), false);
 });
 
 test("malformed JSON uses the centralized error response", async () => {
@@ -71,7 +75,7 @@ test("request validation returns safe field-level errors", async () => {
   assert.deepEqual(Object.keys(body.errors).sort(), ["email", "name", "password"]);
 });
 
-test("product validation rejects negative amounts before database access", async () => {
+test("product mutations require authentication before body validation", async () => {
   const response = await fetch(`${baseUrl}/api/products`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -85,9 +89,8 @@ test("product validation rejects negative amounts before database access", async
   });
   const body = await response.json();
 
-  assert.equal(response.status, 400);
-  assert.equal(body.code, "VALIDATION_ERROR");
-  assert.deepEqual(Object.keys(body.errors).sort(), ["price", "quantity"]);
+  assert.equal(response.status, 401);
+  assert.equal(body.code, "AUTH_REQUIRED");
 });
 
 test("authentication failures share the centralized error format", async () => {
