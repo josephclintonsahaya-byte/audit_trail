@@ -17,6 +17,7 @@ import StatusBadge from '../components/StatusBadge';
 import { hasPermission } from '../permissions';
 import { ApiError } from '../services/api';
 import {
+  listShipments,
   getCurrentShipmentState,
   getShipmentById,
   getShipmentEvents,
@@ -132,21 +133,38 @@ function ShipmentDetails({ user }: { user: User | null }) {
   const historyRequest = useRef(0);
 
   const loadShipment = useCallback(async () => {
-    if (!id) {
-      setError('Shipment ID is missing.');
-      setLoading(false);
-      return;
+    let effectiveId = id;
+
+    if (!effectiveId) {
+      try {
+        const shipments = await listShipments();
+        if (shipments.length > 0) {
+          effectiveId = shipments[0]._id ?? shipments[0].id ?? shipments[0].shipmentNumber;
+        } else {
+          setError('No shipments available.');
+          setLoading(false);
+          return;
+        }
+      } catch (listError) {
+        setError(
+          listError instanceof Error
+            ? listError.message
+            : 'Unable to load shipments.',
+        );
+        setLoading(false);
+        return;
+      }
     }
 
     try {
       setLoading(true);
-      const shipmentResponse = await getShipmentById(id);
+      const shipmentResponse = await getShipmentById(effectiveId);
       setShipment(shipmentResponse);
       setError(null);
 
       const [eventResult, currentStateResult] = await Promise.allSettled([
-        getShipmentEvents(id),
-        getCurrentShipmentState(id),
+        getShipmentEvents(effectiveId),
+        getCurrentShipmentState(effectiveId),
       ]);
       const orderedEvents =
         eventResult.status === 'fulfilled'
@@ -191,7 +209,7 @@ function ShipmentDetails({ user }: { user: User | null }) {
         } else {
           try {
             setHistoricalState(
-              await reconstructShipment(id, latestEvent.version),
+              await reconstructShipment(effectiveId, latestEvent.version),
             );
           } catch (historyRequestError) {
             setHistoricalState(null);
