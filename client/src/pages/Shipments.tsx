@@ -141,10 +141,14 @@ function Shipments({ user }: { user: User | null }) {
       if (action === 'cancel') {
         await cancelShipment(shipmentId);
       }
-      await loadShipments();
     } catch (requestError) {
-      setError(requestError instanceof Error ? requestError.message : 'Unable to update shipment.');
+      setError(
+        requestError instanceof Error
+          ? requestError.message
+          : 'Unable to update shipment.',
+      );
     } finally {
+      await loadShipments();
       setPendingShipmentId(null);
     }
   };

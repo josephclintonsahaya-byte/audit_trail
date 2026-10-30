@@ -131,3 +131,14 @@ export const cancelShipment = async (id: string): Promise<Shipment> => {
   }
   return response.shipment;
 };
+
+export const recordShipmentLocation = async (
+  id: string,
+  expectedVersion: number,
+  location: string,
+): Promise<void> => {
+  await apiRequest<void>(`/api/shipments/${id}/location`, {
+    method: 'POST',
+    body: JSON.stringify({ location, expectedVersion }),
+  });
+};
