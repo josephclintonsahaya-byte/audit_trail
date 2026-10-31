@@ -10,6 +10,7 @@ export const SHIPMENT_DOMAIN_EVENT_TYPES = [
   "SHIPMENT_CANCELLED",
   "SHIPMENT_DELETED",
   "SHIPMENT_TEMPERATURE_RECORDED",
+  "SHIPMENT_LOCATION_UPDATED",
 ] as const;
 
 export type ShipmentDomainEventType =

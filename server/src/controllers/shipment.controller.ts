@@ -9,6 +9,7 @@ import {
   dispatchShipment,
   getShipment,
   listShipments,
+  recordShipmentLocation,
   updateDraftShipment,
 } from "../services/shipment.service";
 import { AppError } from "../utils/AppError";
@@ -189,3 +190,33 @@ export const deliverShipmentHandler = (req: Request, res: Response) =>
 
 export const cancelShipmentHandler = (req: Request, res: Response) =>
   runShipmentAction(req, res, "cancel");
+
+export const recordShipmentLocationHandler = async (
+  req: Request,
+  res: Response
+): Promise<void> => {
+  const actorId = requireActorId(req);
+  const shipmentId = String(req.params.id);
+  const { location, expectedVersion } = req.body;
+
+  if (!location || typeof location !== "string") {
+    throw validationError({ location: "Location is required and must be a string" });
+  }
+
+  if (typeof expectedVersion !== "number" || !Number.isInteger(expectedVersion)) {
+    throw validationError({ expectedVersion: "Expected version must be an integer" });
+  }
+
+  const shipment = await recordShipmentLocation(
+    shipmentId,
+    location,
+    actorId,
+    expectedVersion
+  );
+
+  res.status(200).json({
+    success: true,
+    message: "Shipment location updated successfully",
+    shipment,
+  });
+};
