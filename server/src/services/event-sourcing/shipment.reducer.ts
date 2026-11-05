@@ -69,6 +69,7 @@ const creationHandler: EventHandler = (_state, event) => {
         ? payload.status
         : "CREATED",
     createdBy: payload.createdBy,
+    location: typeof payload.location === "string" ? payload.location.trim() : "",
     ...(payload.deleted === true ? { deleted: true } : {}),
   };
 };
@@ -117,11 +118,12 @@ const handlers: Record<ShipmentDomainEventType, EventHandler> = {
   }),
   SHIPMENT_TEMPERATURE_RECORDED: (state, event) => requireState(state, event),
   SHIPMENT_LOCATION_UPDATED: (state, event) => {
+    const previous = requireState(state, event);
     const payload = getPayload(event);
     if (typeof payload.location === "string" && payload.location.trim().length > 0) {
-      return { ...state, location: payload.location.trim() };
+      return { ...previous, location: payload.location.trim() };
     }
-    return state;
+    return previous;
   },
   SHIPMENT_DELETED: (state, event) => ({
     ...requireState(state, event),

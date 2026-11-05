@@ -125,22 +125,19 @@ eventStoreSchema.pre("deleteOne", { document: true, query: false }, function () 
   throw immutableError();
 });
 
-eventStoreSchema.pre(
-  [
-    "update",
-    "updateOne",
-    "updateMany",
-    "replaceOne",
-    "findOneAndUpdate",
-    "findOneAndReplace",
-    "findOneAndDelete",
-    "deleteOne",
-    "deleteMany",
-  ] as const,
-  function () {
-    throw immutableError();
-  }
-);
+const rejectImmutableQueryOperation = function () {
+  throw immutableError();
+};
+
+eventStoreSchema.pre(/^update$/, rejectImmutableQueryOperation);
+eventStoreSchema.pre("updateOne", rejectImmutableQueryOperation);
+eventStoreSchema.pre("updateMany", rejectImmutableQueryOperation);
+eventStoreSchema.pre("replaceOne", rejectImmutableQueryOperation);
+eventStoreSchema.pre("findOneAndUpdate", rejectImmutableQueryOperation);
+eventStoreSchema.pre("findOneAndReplace", rejectImmutableQueryOperation);
+eventStoreSchema.pre("findOneAndDelete", rejectImmutableQueryOperation);
+eventStoreSchema.pre("deleteOne", rejectImmutableQueryOperation);
+eventStoreSchema.pre("deleteMany", rejectImmutableQueryOperation);
 
 // Model-level bulk writes bypass query middleware, so reject the entire API.
 // appendEvent uses create/insert semantics and remains available.

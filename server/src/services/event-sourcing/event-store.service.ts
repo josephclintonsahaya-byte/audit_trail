@@ -133,6 +133,10 @@ const appendWithinTransaction = async (
   input: AppendEventInput,
   session: ClientSession
 ): Promise<ShipmentDomainEvent> => {
+  const correlationId =
+    typeof input.metadata?.correlationId === "string"
+      ? input.metadata.correlationId
+      : undefined;
   const errors: Record<string, string> = {};
   if (!Number.isSafeInteger(input.expectedVersion) || input.expectedVersion < 0) {
     errors.expectedVersion = "Must be a non-negative whole number";
@@ -163,7 +167,7 @@ const appendWithinTransaction = async (
       expectedVersion: input.expectedVersion,
       currentVersion,
       source: "version_check",
-      correlationId: input.metadata?.correlationId,
+      correlationId,
     });
     throw new AppError(
       "Aggregate version conflict",

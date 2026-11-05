@@ -792,7 +792,7 @@ function ShipmentDetails({ user }: { user: User | null }) {
                   </article>
                   <article className="forensics-summary-card">
                     <span>Location</span>
-                    <strong>{selectedLocation ?? typeof shipment?.sourceWarehouseId === 'object' ? shipment.sourceWarehouseId.name : 'Not recorded'}</strong>
+                    <strong>{selectedLocation ?? (typeof shipment.sourceWarehouseId === 'object' ? shipment.sourceWarehouseId.name : 'Not recorded')}</strong>
                   </article>
                   <article className="forensics-summary-card">
                     <span>Destination ID</span>
