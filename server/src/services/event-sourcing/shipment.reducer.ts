@@ -11,6 +11,7 @@ export interface ShipmentAggregateState {
   status: "CREATED" | "IN_TRANSIT" | "DELIVERED" | "CANCELLED";
   createdBy: string;
   deleted?: boolean;
+  location: string;
 }
 
 type EventHandler = (
@@ -115,6 +116,13 @@ const handlers: Record<ShipmentDomainEventType, EventHandler> = {
     status: "CANCELLED",
   }),
   SHIPMENT_TEMPERATURE_RECORDED: (state, event) => requireState(state, event),
+  SHIPMENT_LOCATION_UPDATED: (state, event) => {
+    const payload = getPayload(event);
+    if (typeof payload.location === "string" && payload.location.trim().length > 0) {
+      return { ...state, location: payload.location.trim() };
+    }
+    return state;
+  },
   SHIPMENT_DELETED: (state, event) => ({
     ...requireState(state, event),
     deleted: true,

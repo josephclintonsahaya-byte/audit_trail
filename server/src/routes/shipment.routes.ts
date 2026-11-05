@@ -8,6 +8,7 @@ import {
   getShipmentById,
   getShipments,
   updateShipment,
+  recordShipmentLocationHandler,
 } from "../controllers/shipment.controller";
 import { authorizeRoles } from "../middleware/authorize.middleware";
 import { requireAuth } from "../middleware/auth.middleware";
@@ -39,5 +40,6 @@ router.delete("/:id", validateObjectIdParam("id", "shipment ID"), authorizeRoles
 router.post("/:id/dispatch", validateObjectIdParam("id", "shipment ID"), managers, dispatchShipmentHandler);
 router.post("/:id/deliver", validateObjectIdParam("id", "shipment ID"), managers, deliverShipmentHandler);
 router.post("/:id/cancel", validateObjectIdParam("id", "shipment ID"), managers, cancelShipmentHandler);
+router.post("/:id/location", validateObjectIdParam("id", "shipment ID"), managers, recordShipmentLocationHandler);
 
 export default router;

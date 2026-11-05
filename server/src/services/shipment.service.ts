@@ -569,6 +569,59 @@ export const recordShipmentTemperature = async (
   return populateShipment(Shipment.findById(updated._id));
 };
 
+export const recordShipmentLocation = async (
+  shipmentId: string,
+  location: string,
+  actorId: string,
+  expectedVersion: number,
+  metadata: EventMetadata = { source: "legacy-shipment-api", command: "RECORD_SHIPMENT_LOCATION" }
+) => {
+  requireObjectId(shipmentId, "shipmentId");
+  requireObjectId(actorId, "authenticated user");
+  if (!location || !location.trim()) {
+    throw new ShipmentServiceError("Location must be a non-empty string", 400);
+  }
+
+  const updated = await mongoose.connection.transaction(async (session) => {
+    const shipment = await Shipment.findById(shipmentId).session(session);
+    if (!shipment) {
+      throw new ShipmentServiceError("Shipment not found", 404);
+    }
+
+    const current = await requireExpectedVersion(
+      shipment,
+      actorId,
+      expectedVersion,
+      session
+    );
+
+    await appendShipmentEvent(
+      shipment,
+      "SHIPMENT_LOCATION_UPDATED",
+      { ...eventPayloadFromShipment(shipment), location: location.trim() },
+      actorId,
+      current.version,
+      session,
+      metadata
+    );
+    await shipment.save({ session });
+    await createBusinessEvent({
+      eventType: "SHIPMENT_LOCATION_UPDATED",
+      entityType: "Shipment",
+      entityId: shipment._id,
+      performedBy: actorId,
+      payload: {
+        shipmentNumber: shipment.shipmentNumber,
+        location: location.trim(),
+      },
+      session,
+    });
+    return shipment;
+  });
+
+  return populateShipment(Shipment.findById(updated._id));
+};
+
 export const cancelShipment = (
   shipmentId: string,
   actorId: string,

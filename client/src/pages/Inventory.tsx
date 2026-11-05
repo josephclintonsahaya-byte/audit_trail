@@ -53,10 +53,10 @@ function Inventory({ user }: { user: User | null }) {
   const [quantityDraft, setQuantityDraft] = useState('');
   const [selectedItem, setSelectedItem] = useState<InventoryItem | null>(null);
   const [historyItem, setHistoryItem] = useState<InventoryItem | null>(null);
+
   const [history, setHistory] = useState<AuditEvent[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
-  const [copiedProductId, setCopiedProductId] = useState<string | null>(null);
 
   const loadInventory = useCallback(async () => {
     try {
@@ -176,16 +176,6 @@ function Inventory({ user }: { user: User | null }) {
     }
   };
 
-  const copyProductId = async (productId: string) => {
-    try {
-      await navigator.clipboard.writeText(productId);
-      setCopiedProductId(productId);
-      window.setTimeout(() => setCopiedProductId(null), 1600);
-    } catch {
-      setError('Could not copy the product ID.');
-    }
-  };
-
   if (loading && inventory.length === 0) return <LoadingState message="Loading inventory..." />;
 
   return (
@@ -262,28 +252,28 @@ function Inventory({ user }: { user: User | null }) {
                   const productId = getProductId(item);
                   const itemId = getInventoryId(item);
                   const stockStatus = getStockStatus(Number(item.quantity ?? 0));
-                  return (
-                    <tr key={itemId || `${productId}-${warehouse?.code ?? warehouse?.name ?? 'warehouse'}`}>
-                      <td>
-                        <div className="inventory-identifier" title={productId || product?.sku || 'Product ID unavailable'}>
-                          <span>{product?.sku ?? 'SKU unavailable'}</span>
-                          {productId ? <><code>{productId}</code><button type="button" className="inventory-copy-button" onClick={() => void copyProductId(productId)} aria-label={`Copy product ID ${productId}`} title={copiedProductId === productId ? 'Copied' : 'Copy product ID'}>{copiedProductId === productId ? '✓' : '▢'}</button></> : null}
-                        </div>
-                      </td>
-                      <td title={product?.name ?? 'Product details unavailable'}>{product?.name ?? 'Unknown product'}</td>
-                      <td title={warehouse ? `${warehouse.name} — ${warehouse.location}` : 'Warehouse details unavailable'}>{warehouse?.location || warehouse?.name || (typeof item.warehouseId === 'string' ? item.warehouseId : 'Unknown warehouse')}</td>
-                      <td className="quantity-cell">{Number(item.quantity ?? 0).toLocaleString()}</td>
-                      <td><span className={`inventory-stock-badge inventory-stock-badge--${stockStatus}`}>{stockStatusLabels[stockStatus]}</span></td>
-                      <td className="timestamp-cell">{formatTimestamp(item.updatedAt ?? item.createdAt)}</td>
-                      <td><div className="inventory-row-actions">
-                        <button type="button" className="button button--primary" onClick={() => setSelectedItem(item)}>View Details</button>
-                        {canUpdateInventory ? <button type="button" className="button button--ghost" onClick={() => { setEditingItem(item); setQuantityDraft(String(item.quantity ?? 0)); }}>Edit Stock</button> : null}
-                        {canDeleteInventory ? <button type="button" className="button button--danger" onClick={() => void handleDeleteInventory(item)} disabled={deletingId === itemId}>{deletingId === itemId ? 'Deleting...' : 'Delete'}</button> : null}
-                        <button type="button" className="button button--ghost inventory-history-button" onClick={() => void openHistory(item)} aria-label="View movement history" title="View movement history">History</button>
-                      </div></td>
-                    </tr>
-                  );
-                })}
+                   return (
+                     <tr key={itemId || `${productId}-${warehouse?.code ?? warehouse?.name ?? 'warehouse'}`}>
+                       <td>
+                         <div className="inventory-identifier" title={product?.sku || 'Product ID unavailable'}>
+                           <span>{product?.sku ?? 'SKU unavailable'}</span>
+                         </div>
+                       </td>
+                       <td title={product?.name ?? 'Product details unavailable'}>{product?.name ?? 'Unknown product'}</td>
+                       <td title={warehouse ? `${warehouse.name} — ${warehouse.location}` : 'Warehouse details unavailable'}>{warehouse?.location || warehouse?.name || (typeof item.warehouseId === 'string' ? item.warehouseId : 'Unknown warehouse')}</td>
+                       <td className="quantity-cell" style={{ paddingRight: '12px' }}>{Number(item.quantity ?? 0).toLocaleString()}</td>
+                       <td><span className={`inventory-stock-badge inventory-stock-badge--${stockStatus}`}>{stockStatusLabels[stockStatus]}</span></td>
+                       <td className="timestamp-cell">{formatTimestamp(item.updatedAt ?? item.createdAt)}</td>
+                       <td><div className="inventory-row-actions">
+                         <button type="button" className="button button--primary" onClick={() => setSelectedItem(item)}>View Details</button>
+                         {canUpdateInventory ? <button type="button" className="button button--ghost" onClick={() => { setEditingItem(item); setQuantityDraft(String(item.quantity ?? 0)); }}>Edit Stock</button> : null}
+                         {canDeleteInventory ? <button type="button" className="button button--danger" onClick={() => void handleDeleteInventory(item)} disabled={deletingId === itemId}>{deletingId === itemId ? 'Deleting...' : 'Delete'}</button> : null}
+                         <button type="button" className="button button--ghost inventory-history-button" onClick={() => void openHistory(item)} aria-label="View movement history" title="View movement history">History</button>
+                       </div></td>
+                     </tr>
+                   );
+
+                  })}
               </tbody>
             </table>
           </div>
@@ -322,7 +312,6 @@ function Inventory({ user }: { user: User | null }) {
           </section>
         </div>;
       })() : null}
-
       {editingItem ? <div className="inventory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setEditingItem(null); }}>
         <section className="inventory-modal crud-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-edit-title">
           <div className="panel-card__header crud-modal__header"><div><p className="eyebrow">Stock adjustment</p><h3 id="inventory-edit-title">Edit Stock</h3></div><button type="button" className="modal-close-button" aria-label="Close stock adjustment" onClick={() => setEditingItem(null)}>×</button></div>
@@ -332,7 +321,6 @@ function Inventory({ user }: { user: User | null }) {
           </form>
         </section>
       </div> : null}
-
       {historyItem ? <div className="inventory-modal-backdrop" role="presentation" onMouseDown={(event) => { if (event.target === event.currentTarget) setHistoryItem(null); }}>
         <section className="inventory-modal inventory-history-modal crud-modal" role="dialog" aria-modal="true" aria-labelledby="inventory-history-title">
           <div className="panel-card__header crud-modal__header"><div><p className="eyebrow">Immutable record</p><h3 id="inventory-history-title">Movement history</h3></div><button type="button" className="modal-close-button" aria-label="Close movement history" onClick={() => setHistoryItem(null)}>×</button></div>
@@ -347,5 +335,4 @@ function Inventory({ user }: { user: User | null }) {
     </section>
   );
 }
-
 export default Inventory;

@@ -21,6 +21,7 @@ import {
   getCurrentShipmentState,
   getShipmentById,
   getShipmentEvents,
+  recordShipmentLocation,
   recordShipmentTemperature,
   reconstructShipment,
 } from '../services/shipmentService';
@@ -47,6 +48,7 @@ const eventLabels: Record<string, string> = {
   SHIPMENT_CANCELLED: 'Shipment cancelled',
   SHIPMENT_DELETED: 'Shipment deleted',
   SHIPMENT_TEMPERATURE_RECORDED: 'Temperature recorded',
+  SHIPMENT_LOCATION_UPDATED: 'Location updated',
 };
 
 const formatEventType = (eventType: string): string =>
@@ -130,6 +132,9 @@ function ShipmentDetails({ user }: { user: User | null }) {
   const [temperatureInput, setTemperatureInput] = useState('');
   const [temperatureError, setTemperatureError] = useState<string | null>(null);
   const [recordingTemperature, setRecordingTemperature] = useState(false);
+  const [locationInput, setLocationInput] = useState('');
+  const [locationError, setLocationError] = useState<string | null>(null);
+  const [recordingLocation, setRecordingLocation] = useState(false);
   const historyRequest = useRef(0);
 
   const loadShipment = useCallback(async () => {
@@ -408,6 +413,49 @@ function ShipmentDetails({ user }: { user: User | null }) {
       }
     } finally {
       setRecordingTemperature(false);
+    }
+  };
+
+  const handleRecordLocation = async (
+    event: FormEvent<HTMLFormElement>,
+  ) => {
+    event.preventDefault();
+
+    const expectedVersion = events.at(-1)?.version;
+
+    if (!locationInput.trim()) {
+      setLocationError('Location is required.');
+      return;
+    }
+
+    if (!id || expectedVersion === undefined) {
+      setLocationError('The current shipment event version is unavailable.');
+      return;
+    }
+
+    setRecordingLocation(true);
+    setLocationError(null);
+
+    try {
+      await recordShipmentLocation(id, expectedVersion, locationInput);
+      setLocationInput('');
+      await loadShipment();
+    } catch (requestError) {
+      if (requestError instanceof ApiError && requestError.code === 'CONCURRENCY_CONFLICT') {
+        const loadedVersion = requestError.details?.expectedVersion ?? expectedVersion;
+        const serverVersion = requestError.details?.currentVersion ?? 'unknown';
+        setLocationError(
+          `Concurrency Conflict. This shipment was modified by another operation. Loaded version: ${loadedVersion}. Current version: ${serverVersion}. Refresh the shipment before retrying.`,
+        );
+      } else {
+        setLocationError(
+          requestError instanceof Error
+            ? requestError.message
+            : 'Unable to update shipment location.',
+        );
+      }
+    } finally {
+      setRecordingLocation(false);
     }
   };
 
@@ -744,7 +792,7 @@ function ShipmentDetails({ user }: { user: User | null }) {
                   </article>
                   <article className="forensics-summary-card">
                     <span>Location</span>
-                    <strong>{selectedLocation ?? 'Not recorded'}</strong>
+                    <strong>{selectedLocation ?? typeof shipment?.sourceWarehouseId === 'object' ? shipment.sourceWarehouseId.name : 'Not recorded'}</strong>
                   </article>
                   <article className="forensics-summary-card">
                     <span>Destination ID</span>
@@ -866,8 +914,35 @@ function ShipmentDetails({ user }: { user: User | null }) {
               {recordingTemperature ? 'Recording…' : 'Record reading'}
             </button>
 
-            {temperatureError ? (
+{temperatureError ? (
               <p className="text-danger" role="alert">{temperatureError}</p>
+            ) : null}
+          </form>
+        ) : null}
+        {shipment.status !== 'DELIVERED' ? (
+          <form className="location-form" onSubmit={handleRecordLocation}>
+            <label>
+              <span>Shipment location</span>
+              <input
+                type="text"
+                value={locationInput}
+                onChange={(changeEvent) =>
+                  setLocationInput(changeEvent.target.value)
+                }
+                placeholder="e.g. Coimbatore"
+                required
+              />
+            </label>
+            <button
+              className="button button--primary"
+              type="submit"
+              disabled={recordingLocation}
+            >
+              {recordingLocation ? 'Updating…' : 'Update Location'}
+            </button>
+
+            {locationError ? (
+              <p className="text-danger" role="alert">{locationError}</p>
             ) : null}
           </form>
         ) : null}
@@ -875,5 +950,4 @@ function ShipmentDetails({ user }: { user: User | null }) {
     </section>
   );
 }
-
 export default ShipmentDetails;
